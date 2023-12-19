@@ -35,37 +35,13 @@ def scatter(x, classes, colors):
     return plot
 
 
-def eval(config, is_ood, set, split, dataroot):
-    global colors, n_classes, classes, weights
-
-    if config['five']:
-        colors = torch.tensor([
-            [0, 0, 255],
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-            [255, 255, 255],
-        ])
-
-        n_classes, classes = 5, ["vehicle", "road", "lane", "background", "ood"]
-        weights = torch.tensor([3., 1., 2., 1., 4.])
-        change_params(n_classes, classes, colors, weights)
-    elif config['three']:
-        colors = torch.tensor([
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-        ])
-
-        n_classes, classes = 3, ["road", "lane", "background"]
-        weights = torch.tensor([1., 2., 1.])
-        change_params(n_classes, classes, colors, weights)
+def eval(config, set, split, dataroot):
 
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=not config['three'] and (config['ood'] or config['five']),
+        ood=config['ood'],
         pseudo=config['pseudo']
     )
 
@@ -108,7 +84,7 @@ def eval(config, is_ood, set, split, dataroot):
         images, intrinsics, extrinsics, labels, ood = next(iter(val_loader))
         outs = model(images, intrinsics, extrinsics).detach().cpu()
 
-        if config['ood'] or config['three']:
+        if config['ood']:
             labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
             labels = torch.cat((labels, ood[:, None]), dim=1)
 
@@ -118,7 +94,7 @@ def eval(config, is_ood, set, split, dataroot):
 
             feature_map = tsne.fit_transform(outs[i].view(n_classes, -1).transpose(0, 1))
 
-            if config['ood'] or config['three']:
+            if config['ood']:
                 l = torch.argmax(labels[i].view(n_classes+1, -1), dim=0).cpu().numpy()
                 f = scatter(feature_map, classes + ["ood"], l)
             else:
@@ -138,13 +114,6 @@ def eval(config, is_ood, set, split, dataroot):
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
-            if config['five']:
-                labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
-                labels = torch.cat((labels, ood[:, None]), dim=1)
-            elif config['three']:
-                ood = labels[:, 0]
-                labels = labels[:, 1:]
-
             model.eval()
             model.training = False
 
@@ -156,7 +125,7 @@ def eval(config, is_ood, set, split, dataroot):
             epistemic.append(model.epistemic(outs))
             raw.append(outs)
 
-            if is_ood:
+            if config['ood']:
                 save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
             else:
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
@@ -187,8 +156,6 @@ if __name__ == "__main__":
     parser.add_argument('--num_workers', required=False, type=int)
     parser.add_argument('--set', default="val", required=False, type=str)
     parser.add_argument('-t', '--tsne', default=False, action='store_true')
-    parser.add_argument('--five', default=False, action='store_true')
-    parser.add_argument('--three', default=False, action='store_true')
     parser.add_argument('--pseudo', default=False, action='store_true')
 
     args = parser.parse_args()
@@ -200,13 +167,13 @@ if __name__ == "__main__":
         torch.backends.cudnn.enabled = False
 
     split = args.split
-    is_ood = args.ood
     metric = args.metric
     set = args.set
+
     dataroot = f"../data/{config['dataset']}"
     name = f"{config['backbone']}_{config['type']}"
 
-    predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, is_ood, set, split, dataroot)
+    predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
 
     iou = get_iou(predictions, ground_truth)
     ece = ece(predictions, ground_truth)
@@ -225,7 +192,7 @@ if __name__ == "__main__":
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
         torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
 
-    if is_ood:
+    if config['ood']:
         uncertainty_scores = epistemic.squeeze(1)
         uncertainty_labels = oods.bool()
         print("EVAL OOD")
@@ -256,9 +223,9 @@ if __name__ == "__main__":
         ax3.legend(frameon=True)
         ax3.set_ylim(-0.05, 1.05)
 
-        fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'} - {name}")
+        fig.suptitle(f"{'OOD' if config['ood'] else 'Misclassification'} - {name}")
 
-        save_path = os.path.join(config['logdir'], f"patch_{'o' if is_ood else 'm'}_{name}.png")
+        save_path = os.path.join(config['logdir'], f"patch_{'o' if config['ood'] else 'm'}_{name}.png")
 
         print(
             f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
@@ -283,9 +250,9 @@ if __name__ == "__main__":
         ax2.tick_params(axis='y', which='both', left=True)
         ax2.legend()
 
-        fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'} - {name}")
+        fig.suptitle(f"{'OOD' if config['ood'] else 'Misclassification'} - {name}")
 
-        save_path = os.path.join(config['logdir'], f"rocpr_{'o' if is_ood else 'm'}_{name}.png")
+        save_path = os.path.join(config['logdir'], f"rocpr_{'o' if config['ood'] else 'm'}_{name}.png")
 
         print(f"UNCERTAINTY IOU: {get_iou(torch.cat((uncertainty_scores[:, None], 1-uncertainty_scores[:, None]), dim=1), torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))}")
         print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")

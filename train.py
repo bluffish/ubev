@@ -14,31 +14,6 @@ np.random.seed(0)
 
 
 def train():
-    global colors, n_classes, classes, weights
-
-    if config['five']:
-        colors = torch.tensor([
-            [0, 0, 255],
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-            [255, 255, 255],
-        ])
-
-        n_classes, classes = 5, ["vehicle", "road", "lane", "background", "ood"]
-        weights = torch.tensor([3., 1., 2., 1., 4.])
-        change_params(n_classes, classes, colors, weights)
-    elif config['three']:
-        colors = torch.tensor([
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-        ])
-
-        n_classes, classes = 3, ["road", "lane", "background"]
-        weights = torch.tensor([1., 2., 1.])
-        change_params(n_classes, classes, colors, weights)
-
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
@@ -46,7 +21,7 @@ def train():
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=config['ood'] or config['five'],
+        ood=config['ood'],
         pseudo=True
     )
 
@@ -87,6 +62,7 @@ def train():
 
     if 'ol' in config:
         model.ood_lambda = config['ol']
+        print(f"OOD LAMBDA: {model.ood_lambda}")
 
     if 'k' in config:
         model.k = config['k']
@@ -95,9 +71,6 @@ def train():
     if 'scale' in config:
         model.scale = config['scale']
         print(f"Scaling with {model.scale} @ k={model.k}")
-
-    if config['ood']:
-        print(f"OOD LAMBDA: {model.ood_lambda}")
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -121,18 +94,11 @@ def train():
         writer.add_scalar('train/epoch', epoch, step)
 
         for images, intrinsics, extrinsics, labels, ood in train_loader:
-            if config['five']:
-                labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
-                labels = torch.cat((labels, ood[:, None]), dim=1)
-            elif config['three']:
-                ood = labels[:, 0]
-                labels = labels[:, 1:]
-
             t_0 = time()
+            ood_loss = None
 
-            oodl = None
-            if config['ood'] or config['three']:
-                outs, preds, loss, oodl = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
+            if config['ood']:
+                outs, preds, loss, ood_loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
                 outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
@@ -147,10 +113,10 @@ def train():
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
 
-                if oodl is not None:
-                    writer.add_scalar('train/ood_loss', oodl, step)
+                if ood_loss is not None:
+                    writer.add_scalar('train/ood_loss', ood_loss, step)
 
-                if config['ood'] or config['three']:
+                if config['ood']:
                     save_unc(model.epistemic(outs), ood, config['logdir'])
                 save_pred(preds, labels, config['logdir'])
 
@@ -164,8 +130,7 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader, config)
-
+        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader)
         iou = get_iou(predictions, ground_truth)
 
         for i in range(0, n_classes):
@@ -173,56 +138,55 @@ def train():
 
         print(f"Validation mIOU: {iou}")
 
-        if config['ood'] or config['three']:
-            batch_size = 32
+        ood_loss = None
+        if config['ood']:
             n_samples = len(raw)
-            val_loss_total = 0
-            oodl_total = 0
+            val_loss = 0
+            ood_loss = 0
 
-            for i in range(0, n_samples, batch_size):
-                raw_batch = raw[i:i + batch_size].to(model.device)
-                ground_truth_batch = ground_truth[i:i + batch_size].to(model.device)
-                oods_batch = oods[i:i + batch_size].to(model.device)
+            for i in range(0, n_samples, config['batch_size']):
+                raw_batch = raw[i:i + config['batch_size']].to(model.device)
+                ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
+                oods_batch = oods[i:i + config['batch_size']].to(model.device)
 
-                val_loss, oodl = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+                vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
 
-                val_loss_total += val_loss
-                oodl_total += oodl
+                val_loss += vl
+                ood_loss += ol
 
-            val_loss = val_loss_total / (n_samples / batch_size)
-            oodl = oodl_total / (n_samples / batch_size)
+            val_loss /= (n_samples / config['batch_size'])
+            ood_loss /= (n_samples / config['batch_size'])
 
-            writer.add_scalar('val/ood_loss', oodl, epoch)
+            writer.add_scalar('val/ood_loss', ood_loss, epoch)
             writer.add_scalar(f"val/loss", val_loss, epoch)
-            writer.add_scalar(f"val/uce_loss", val_loss-oodl, epoch)
+            writer.add_scalar(f"val/uce_loss", val_loss-ood_loss, epoch)
 
-            uncertainty_scores = epistemic[:200].squeeze(1)
-            uncertainty_labels = oods[:200].bool()
+            uncertainty_scores = epistemic[:256].squeeze(1)
+            uncertainty_labels = oods[:256].bool()
+
             fpr, tpr, rec, pr, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
             writer.add_scalar(f"val/ood_auroc", auroc, epoch)
             writer.add_scalar(f"val/ood_aupr", aupr, epoch)
 
             print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}")
         else:
-            batch_size = 32
             n_samples = len(raw)
-            val_loss_total = 0
+            val_loss = 0
 
-            for i in range(0, n_samples, batch_size):
-                raw_batch = raw[i:i + batch_size].to(model.device)
-                ground_truth_batch = ground_truth[i:i + batch_size].to(model.device)
-                oods_batch = oods[i:i + batch_size].to(model.device)
+            for i in range(0, n_samples, config['batch_size']):
+                raw_batch = raw[i:i + config['batch_size']].to(model.device)
+                ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
 
-                val_loss = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+                vl = model.loss_ood(raw_batch, ground_truth_batch)
 
-                val_loss_total += val_loss
+                val_loss += vl
 
-            val_loss = val_loss_total / (n_samples / batch_size)
+            val_loss /= (n_samples / config['batch_size'])
 
-        writer.add_scalar(f"val/loss", val_loss, epoch)
+            writer.add_scalar(f"val/loss", val_loss, epoch)
 
-        if oodl is not None:
-            print(f"Validation loss: {val_loss}, OOD Reg.: {oodl}")
+        if ood_loss is not None:
+            print(f"Validation loss: {val_loss}, OOD Reg.: {ood_loss}")
         else:
             print(f"Validation loss: {val_loss}")
 
@@ -243,8 +207,6 @@ if __name__ == "__main__":
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
-    parser.add_argument('--five', default=False, action='store_true')
-    parser.add_argument('--three', default=False, action='store_true')
     parser.add_argument('--scale', required=False, type=str)
     parser.add_argument('--k', required=False, type=float)
 
@@ -252,7 +214,6 @@ if __name__ == "__main__":
 
     print(f"Using config {args.config}")
     config = get_config(args)
-    is_ood = args.ood
 
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False

@@ -41,18 +41,7 @@ n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 weights = torch.tensor([3., 1., 2., 1.])
 
 
-def change_params(n, c, co, w):
-    global n_classes
-    global classes
-    global colors
-    global weights
-    n_classes = n
-    classes = c
-    colors = co
-    weights = w
-
-
-def run_loader(model, loader, config):
+def run_loader(model, loader):
     predictions = []
     ground_truth = []
     oods = []
@@ -62,13 +51,6 @@ def run_loader(model, loader, config):
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
-            if config['five']:
-                labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
-                labels = torch.cat((labels, ood[:, None]), dim=1)
-            elif config['three']:
-                ood = labels[:, 0]
-                labels = labels[:, 1:]
-
             outs = model(images, intrinsics, extrinsics).detach().cpu()
 
             predictions.append(model.activate(outs))
