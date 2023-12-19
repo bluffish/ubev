@@ -230,7 +230,7 @@ if __name__ == "__main__":
         print(
             f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
     elif metric == "rocpr":
-        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+        fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         ax1.tick_params(axis='y', which='both', left=True)
         ax1.legend()
 
-        ax2.plot(rec, pr, 'r-', label=f'AUPR - {aupr:.3f}')
+        ax2.step(rec, pr, 'r-', where='post', label=f'AP - {ap:.3f}')
         ax2.plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
         ax2.set_xlabel('Recall')
         ax2.set_ylabel('Precision')
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         save_path = os.path.join(config['logdir'], f"rocpr_{'o' if config['ood'] else 'm'}_{name}.png")
 
         print(f"UNCERTAINTY IOU: {get_iou(torch.cat((uncertainty_scores[:, None], 1-uncertainty_scores[:, None]), dim=1), torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))}")
-        print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")
+        print(f"AUROC: {auroc:.3f} AP: {ap:.3f}")
     else:
         raise ValueError("Please pick a valid metric.")
 

@@ -118,10 +118,10 @@ class CarlaDataset(torch.utils.data.Dataset):
 def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
     if pseudo:
         print("USING PSEUDO")
-        # train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
-        # val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
-        data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
-        train_data, val_data = torch.utils.data.random_split(data, [35000, 5000])
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
+        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
+        # data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
+        # train_data, val_data = torch.utils.data.random_split(data, [35000, 5000])
     elif ood:
         # data = CarlaDataset(os.path.join(dataroot, "ood"), True)
         # train_data, val_data = torch.utils.data.random_split(data, [800, 200])
@@ -131,7 +131,6 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pse
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
 
-    print(version)
     if version == 'mini':
         g = torch.Generator()
         g.manual_seed(0)

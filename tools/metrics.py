@@ -151,15 +151,17 @@ def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
     pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
     fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
 
-    PrecisionRecallDisplay.from_predictions(y_true, y_score)
-    plt.savefig("test.png")
+    disp = PrecisionRecallDisplay(precision=pr, recall=rec)
+    disp.plot()
+    plt.savefig("test_pr.png")
 
     aupr = auc(rec, pr)
     auroc = auc(fpr, tpr)
+    ap = average_precision_score(y_true, y_score)
 
     no_skill = np.sum(y_true) / len(y_true)
 
-    return fpr, tpr, rec, pr, auroc, aupr, no_skill
+    return fpr, tpr, rec, pr, auroc, ap, no_skill
 
 
 def ece(y_pred, y_true, n_bins=10):
