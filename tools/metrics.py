@@ -151,10 +151,6 @@ def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
     pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
     fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
 
-    disp = PrecisionRecallDisplay(precision=pr, recall=rec)
-    disp.plot()
-    plt.savefig("test_pr.png")
-
     aupr = auc(rec, pr)
     auroc = auc(fpr, tpr)
     ap = average_precision_score(y_true, y_score)

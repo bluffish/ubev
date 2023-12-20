@@ -1,3 +1,5 @@
+import torch
+
 from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
@@ -26,13 +28,18 @@ class Evidential(Model):
             self.beta_lambda = .0
 
     @staticmethod
-    def aleatoric(alpha, mode='aleatoric'):
+    def aleatoric(alpha, mode='var'):
         if mode == 'aleatoric':
             soft = Evidential.activate(alpha)
             max_soft, hard = soft.max(dim=1)
             return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
         elif mode == 'dissonance':
             return dissonance(alpha)
+        elif mode == 'var':
+            alpha0 = torch.sum(alpha, dim=1, keepdim=True)
+            out = (alpha * (alpha0 - alpha)) / ((alpha0 * alpha0) * (alpha0 + 1))
+            out = out.sum(dim=1, keepdim=True)
+            return out / out.max()
 
     @staticmethod
     def epistemic(alpha):

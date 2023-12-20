@@ -21,8 +21,7 @@ def train():
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=config['ood'],
-        pseudo=True
+        pseudo=config['ood']
     )
 
     model = models[config['type']](
@@ -177,7 +176,7 @@ def train():
                 raw_batch = raw[i:i + config['batch_size']].to(model.device)
                 ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
 
-                vl = model.loss_ood(raw_batch, ground_truth_batch)
+                vl = model.loss(raw_batch, ground_truth_batch)
 
                 val_loss += vl
 

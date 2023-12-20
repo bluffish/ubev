@@ -29,6 +29,7 @@ def dissonance(alpha):
                     term_bj += bj
 
             uncertainty[k] += bi * term_bal / (term_bj + 1e-7)
+
     return uncertainty
 
 

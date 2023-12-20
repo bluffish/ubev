@@ -125,7 +125,7 @@ if __name__ == "__main__":
         config['ood'] = is_ood
         config['pseudo'] = args.pseudo
 
-        predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, is_ood, lset, split, dataroot)
+        predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, lset, split, dataroot)
 
         label = set[name]['label'] if 'label' in set[name] else name
 
@@ -160,25 +160,25 @@ if __name__ == "__main__":
 
             print(f"AU-p(accurate|certain) - {au_agc:.3f}, AU-P(uncertain|inaccurate) - {au_ugi:.3f}")
         elif metric == "rocpr":
-            fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+            fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
             ax1.plot(fpr, tpr, '-', label=f'{label}: {auroc:.3f}')
-            ax2.plot(rec, pr, '-', label=f'{label}: {aupr:.3f}')
+            ax2.step(rec, pr, '-', where='post', label=f'{label}: {ap:.3f}')\
 
             no_skill_total += no_skill
 
-            print(f"AUROC: {auroc:.3f}, AUPR: {aupr:.3f}")
+            print(f"AUROC: {auroc:.3f}, AP: {ap:.3f}")
         elif metric == "all":
-            fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+            fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
             pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores,
                                                                                   uncertainty_labels)
 
             ax1.plot(fpr, tpr, '-', label=f'{label}: {auroc:.3f}')
-            ax2.plot(rec, pr, '-', label=f'{label}: {aupr:.3f}')
+            ax2.step(rec, pr, '-', where='post', label=f'AP - {ap:.3f}')
             ax3.plot(thresholds, pavpu, '.-', label=f"{label}: {au_pavpu:.3f}")
 
-            print(f"AUROC: {auroc:.3f}, AUPR: {aupr:.3f}, AU-PAvPU - {au_pavpu:.3f}")
+            print(f"AUROC: {auroc:.3f}, AP: {ap:.3f}, AU-PAvPU - {au_pavpu:.3f}")
 
     if metric == 'all':
         ax1.set_xlim([-0.05, 1.05])
@@ -220,8 +220,8 @@ if __name__ == "__main__":
         ax1.plot([0, 1], [0, 1], linestyle='--', color='gray', label='No Skill - 0.500')
         ax2.plot([0, 1], [no_skill_total / len(names), no_skill_total / len(names)], linestyle='--', color='gray', label=f'No Skill: {no_skill:.3f}')
 
-        ax1.legend(frameon=True)
-        ax2.legend(frameon=True)
+        ax1.legend(frameon=True, title="AUROC")
+        ax2.legend(frameon=True, title='AP')
 
     if title is None:
         fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'}")

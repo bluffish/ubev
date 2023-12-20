@@ -1,0 +1,19 @@
+uce:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: 'outputs/pretrained/lss_evidential/19.pt'
+  label: "UCE"
+
+ufocal:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: 'outputs/pretrained/lss_evidential_focal/19.pt'
+  label: "U-Focal"
+
+ce:
+  config: 'configs/eval_carla_lss_baseline.yaml'
+  path: 'outputs/pretrained/lss_baseline/19.pt'
+  label: "CE"
+
+focal:
+  config: 'configs/eval_carla_lss_baseline.yaml'
+  path: 'outputs/pretrained/lss_baseline_focal/19.pt'
+  label: "Focal"

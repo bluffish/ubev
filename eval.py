@@ -131,6 +131,7 @@ def eval(config, set, split, dataroot):
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
                          config['logdir'])
 
+            break
             save_pred(model.activate(outs), labels, config['logdir'])
 
     return (torch.cat(predictions, dim=0),
@@ -242,7 +243,6 @@ if __name__ == "__main__":
         ax1.tick_params(axis='y', which='both', left=True)
         ax1.legend()
 
-        ax2.step(rec, pr, 'r-', where='post', label=f'AP - {ap:.3f}')
         ax2.plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
         ax2.set_xlabel('Recall')
         ax2.set_ylabel('Precision')

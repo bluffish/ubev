@@ -29,7 +29,7 @@ class Model(nn.Module):
         self.loss_type = loss_type
         self.n_classes = n_classes
         self.opt = opt
-        self.gamma = 2
+        self.gamma = .1
         self.tsne = False
 
         self.create_backbone(backbone)

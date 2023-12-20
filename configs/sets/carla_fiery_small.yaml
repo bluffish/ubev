@@ -1,9 +1,0 @@
-baseline_ce:
-  config: 'configs/eval_carla_fiery_baseline.yaml'
-  path: 'outputs/carla/fiery_baseline/19.pt'
-  label: "Baseline CE"
-
-baseline_focal:
-  config: 'configs/eval_carla_fiery_baseline.yaml'
-  path: 'outputs/carla/fiery_baseline_focal/19.pt'
-  label: "Baseline Focal"
