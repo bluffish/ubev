@@ -3,6 +3,8 @@ import math
 import os
 
 import torchvision
+from torch.utils.data import Subset
+
 from tools.geometry import *
 
 
@@ -120,11 +122,7 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pse
         print("USING PSEUDO")
         train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
-        # data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
-        # train_data, val_data = torch.utils.data.random_split(data, [35000, 5000])
     elif ood:
-        # data = CarlaDataset(os.path.join(dataroot, "ood"), True)
-        # train_data, val_data = torch.utils.data.random_split(data, [800, 200])
         train_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
@@ -135,8 +133,8 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pse
         g = torch.Generator()
         g.manual_seed(0)
 
-        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=256, generator=g)
-        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=256, generator=g)
+        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128, generator=g)
+        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128, generator=g)
 
         train_loader = torch.utils.data.DataLoader(
             train_data,

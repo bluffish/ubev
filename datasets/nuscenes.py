@@ -15,12 +15,14 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, ood=False):
+    def __init__(self, nusc, is_train, ood=False, pseudo=False):
         self.ood = ood
+        self.pseudo = pseudo
 
-        self.ood_classes_val = ["vehicle.bicycle", "static_object.bicycle_rack"]
-        self.ood_classes_train = ["vehicle.motorcycle"]
-        self.all_ood = self.ood_classes_train + self.ood_classes_val
+        self.true_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
+        self.pseudo_ood = ["vehicle.motorcycle"]
+
+        self.all_ood = self.true_ood + self.pseudo_ood
 
         self.nusc = nusc
         self.is_train = is_train
@@ -74,16 +76,17 @@ class NuScenesDataset(torch.utils.data.Dataset):
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
         ood = []
-        aug = []
+        pseudo = []
         id = []
+        both = []
 
         for rec in samples:
             ego_pose = self.nusc.get('ego_pose', rec['data']['LIDAR_TOP'])
 
             ego_coord = ego_pose['translation']
 
-            c = False
-            a = False
+            true = False
+            psd = False
 
             for tok in rec['anns']:
                 inst = self.nusc.get('sample_annotation', tok)
@@ -94,25 +97,31 @@ class NuScenesDataset(torch.utils.data.Dataset):
                         inst['visibility_token']) <= 2:
                     continue
 
-                if inst['category_name'] in self.ood_classes_val:
-                    ood.append(rec)
-                    c = True
-                    break
+                if inst['category_name'] in self.true_ood:
+                    true = True
 
-                if inst['category_name'] in self.ood_classes_train:
-                    a = True
+                if inst['category_name'] in self.pseudo_ood:
+                    psd = True
 
-            if not c:
+            if true and psd:
+                both.append(rec)
+            elif true:
+                ood.append(rec)
+            elif psd:
+                pseudo.append(rec)
+            else:
                 id.append(rec)
 
-                if a:
-                    aug.append(rec)
-
+        print(len(id))
         print(len(ood))
-        if self.ood and self.mode == 'val':
+        print(len(pseudo))
+        print(len(both))
+        print("---")
+
+        if self.ood and not self.pseudo:
             return ood
-        elif self.ood and self.mode == 'train':
-            return aug
+        elif self.ood and self.pseudo:
+            return pseudo
         else:
             return id
 
@@ -278,11 +287,11 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
     nusc, dataroot = get_nusc(version, dataroot)
 
-    train_data = NuScenesDataset(nusc, True, ood=ood)
-    val_data = NuScenesDataset(nusc, False, ood=ood)
+    train_data = NuScenesDataset(nusc, True, ood=ood, pseudo=pseudo)
+    val_data = NuScenesDataset(nusc, False, ood=ood, pseudo=pseudo)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,

@@ -28,7 +28,7 @@ class Evidential(Model):
             self.beta_lambda = .0
 
     @staticmethod
-    def aleatoric(alpha, mode='var'):
+    def aleatoric(alpha, mode='aleatoric'):
         if mode == 'aleatoric':
             soft = Evidential.activate(alpha)
             max_soft, hard = soft.max(dim=1)
@@ -49,7 +49,7 @@ class Evidential(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y):
+    def loss(self, alpha, y, reduction='mean'):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
@@ -64,7 +64,10 @@ class Evidential(Model):
         if self.beta_lambda > 0:
             A += entropy_reg(alpha, self.beta_lambda)
 
-        return A.mean()
+        if reduction == 'mean':
+            return A.mean()
+        else:
+            return A
 
     def loss_ood(self, alpha, y, ood):
         if self.loss_type == 'ce':

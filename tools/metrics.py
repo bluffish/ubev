@@ -10,7 +10,7 @@ import torchmetrics
 import matplotlib.pyplot as plt
 
 
-def get_iou(preds, labels):
+def get_iou(preds, labels, exclude=None):
     classes = preds.shape[1]
     iou = [0] * classes
 
@@ -22,11 +22,24 @@ def get_iou(preds, labels):
             p = (pmax == i).bool()
             l = (lmax == i).bool()
 
+            if exclude is not None:
+                p &= ~exclude
+                l &= ~exclude
+
             intersect = (p & l).sum().float().item()
             union = (p | l).sum().float().item()
             iou[i] = intersect / union if union > 0 else 0
-
     return iou
+
+
+def unc_iou(y_score, y_true):
+    pred = (y_score > .1).bool()
+    target = y_true.bool()
+
+    intersect = (pred & target).sum()
+    union = (pred | target).sum()
+
+    return intersect / union
 
 
 def patch_metrics(uncertainty_scores, uncertainty_labels):
@@ -44,20 +57,6 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
         ugis.append(ugi)
 
     return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
-
-
-def unc_iou(uncertainty_scores, uncertainty_labels):
-    thresholds = np.linspace(0, 1, 11)
-    ious = []
-
-    for thresh in thresholds:
-        with torch.no_grad():
-            label = uncertainty_labels.bool()
-            pred = (uncertainty_scores > thresh).bool()
-            union = (label | pred)
-            ious.append((label & pred) / (union if union > 0 else 1))
-
-    return ious, thresholds
 
 
 def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0.5, uncertainty_threshold=0.2,
@@ -160,20 +159,29 @@ def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
     return fpr, tpr, rec, pr, auroc, ap, no_skill
 
 
-def ece(y_pred, y_true, n_bins=10):
+def ece(y_pred, y_true, n_bins=10, exclude=None):
     y_true = y_true.long().argmax(dim=1)
+
+    if exclude is not None:
+        y_true[exclude] = -1
 
     return torchmetrics.functional.calibration_error(
         y_pred,
         y_true,
         'multiclass',
         n_bins=n_bins,
-        num_classes=y_pred.shape[1]
+        num_classes=y_pred.shape[1],
+        ignore_index=-1
     )
 
 
-def brier_score(y_pred, y_true):
-    return torch.nn.functional.mse_loss(y_pred, y_true)
+def brier_score(y_pred, y_true, exclude=None):
+    brier = torch.nn.functional.mse_loss(y_pred, y_true, reduction='none')
+
+    if exclude is not None:
+        brier = brier[~exclude.unsqueeze(1).repeat(1, 4, 1, 1)]
+
+    return brier.mean()
 
 
 def tsne(y_pred, y_true, perplexity=10):

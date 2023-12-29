@@ -163,7 +163,7 @@ if __name__ == "__main__":
             fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
             ax1.plot(fpr, tpr, '-', label=f'{label}: {auroc:.3f}')
-            ax2.step(rec, pr, '-', where='post', label=f'{label}: {ap:.3f}')\
+            ax2.step(rec, pr, '-', where='post', label=f'{label}: {ap:.3f}')
 
             no_skill_total += no_skill
 

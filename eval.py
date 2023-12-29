@@ -36,7 +36,6 @@ def scatter(x, classes, colors):
 
 
 def eval(config, set, split, dataroot):
-
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
@@ -120,7 +119,7 @@ def eval(config, set, split, dataroot):
             outs = model(images, intrinsics, extrinsics).detach().cpu()
             predictions.append(model.activate(outs))
             ground_truths.append(labels)
-            oods.append(ood)
+            oods.append(ood.bool())
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
             raw.append(outs)
@@ -131,7 +130,6 @@ def eval(config, set, split, dataroot):
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
                          config['logdir'])
 
-            break
             save_pred(model.activate(outs), labels, config['logdir'])
 
     return (torch.cat(predictions, dim=0),
@@ -176,15 +174,6 @@ if __name__ == "__main__":
 
     predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
 
-    iou = get_iou(predictions, ground_truth)
-    ece = ece(predictions, ground_truth)
-    brier = brier_score(predictions, ground_truth)
-
-    print(f"ECE: {ece:.3f}")
-    print(f"IOU: {iou}")
-    print(f"Brier: {brier:.3f}")
-    print(f"Mean epis: {epistemic.mean()}")
-
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))
         torch.save(ground_truth, os.path.join(config['logdir'], 'ground_truth.pt'))
@@ -193,9 +182,17 @@ if __name__ == "__main__":
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
         torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
 
+    iou = get_iou(predictions, ground_truth, exclude=oods)
+    ece = ece(predictions, ground_truth, exclude=oods)
+    brier = brier_score(predictions, ground_truth, exclude=oods)
+
+    print(f"IOU: {iou}")
+    print(f"Brier: {brier:.3f}")
+    print(f"ECE: {ece:.3f}")
+
     if config['ood']:
         uncertainty_scores = epistemic.squeeze(1)
-        uncertainty_labels = oods.bool()
+        uncertainty_labels = oods
         print("EVAL OOD")
     else:
         uncertainty_scores = aleatoric.squeeze(1)
@@ -235,7 +232,7 @@ if __name__ == "__main__":
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
-        ax1.plot(fpr, tpr, 'b-', label=f'AUROC - {auroc:.3f}')
+        ax1.plot(fpr, tpr, 'b-', label=f'AUROC={auroc:.3f}')
         ax1.plot([0, 1], [0, 1], linestyle='--', color='gray', label='No Skill - 0.500')
         ax1.set_xlabel('False Positive Rate')
         ax1.set_ylabel('True Positive Rate')
@@ -243,6 +240,7 @@ if __name__ == "__main__":
         ax1.tick_params(axis='y', which='both', left=True)
         ax1.legend()
 
+        ax2.step(rec, pr, '-', where='post', label=f'AP={ap:.3f}')
         ax2.plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
         ax2.set_xlabel('Recall')
         ax2.set_ylabel('Precision')

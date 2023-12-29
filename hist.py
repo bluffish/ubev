@@ -20,8 +20,22 @@ def sorted_alphanumeric(data):
 
 
 if __name__ == "__main__":
-    # sets = ['0', '.1', '.5', '1', '2', '5']
-    sets = ['true3']
+    sets = {
+        "train": "Train-Pseudo",
+        "val": "Val-Pseudo",
+        "ood": "OOD-True",
+    }
+
+    models = {}
+
+    losses = ["UCE", "UFocal"]
+    ols = [".01", ".1", "1"]
+    vacs = ["0", "8", "32", "64"]
+
+    for loss in losses:
+        for ol in ols:
+            for vac in vacs:
+                models[f"LSS-{loss}-OODReg={ol}-Vac={vac}"] = f"./outputs/grid/{loss.lower()}_ol={ol}_k={vac}/19.pt"
 
     with open('./configs/eval_carla_fiery_evidential.yaml', 'r') as file:
         config = yaml.safe_load(file)

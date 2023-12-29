@@ -21,7 +21,9 @@ def train():
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        pseudo=config['ood']
+        # pseudo=config['ood'],
+        pseudo=False,
+        ood=config['ood']
     )
 
     model = models[config['type']](
