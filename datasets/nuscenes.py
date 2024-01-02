@@ -15,9 +15,10 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, ood=False, pseudo=False):
+    def __init__(self, nusc, is_train, ood=False, pseudo=False, binary=False):
         self.ood = ood
         self.pseudo = pseudo
+        self.binary = binary
 
         self.true_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
         self.pseudo_ood = ["vehicle.motorcycle"]
@@ -222,20 +223,27 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 cv2.fillPoly(vehicles, [pts], 1.0)
 
         road, lane = self.get_map(rec)
+        empty = np.ones(self.bev_dimension[:2])
 
         road[lane == 1] = 0
         road[vehicles == 1] = 0
         lane[vehicles == 1] = 0
 
-        empty = np.ones(self.bev_dimension[:2])
-        empty[vehicles == 1] = 0
-        empty[road == 1] = 0
-        empty[lane == 1] = 0
+        if self.binary:
+            empty[vehicles == 1] = 0
+            label = np.stack((vehicles, empty))
+            label = np.flip(label, axis=(1, 2))
 
-        labels = np.stack((vehicles, road, lane, empty))
-        labels = np.flip(labels, axis=(1, 2))
+            return torch.tensor(label.copy()), torch.tensor(ood)
+        else:
+            empty[vehicles == 1] = 0
+            empty[road == 1] = 0
+            empty[lane == 1] = 0
 
-        return torch.tensor(labels.copy()), torch.tensor(ood.copy())
+            label = np.stack((vehicles, road, lane, empty))
+            label = np.flip(label, axis=(1, 2))
+
+            return torch.tensor(label.copy()), torch.tensor(ood.copy())
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
@@ -287,11 +295,11 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False, binary=False):
     nusc, dataroot = get_nusc(version, dataroot)
 
-    train_data = NuScenesDataset(nusc, True, ood=ood, pseudo=pseudo)
-    val_data = NuScenesDataset(nusc, False, ood=ood, pseudo=pseudo)
+    train_data = NuScenesDataset(nusc, True, ood=ood, pseudo=pseudo, binary=binary)
+    val_data = NuScenesDataset(nusc, False, ood=ood, pseudo=pseudo, binary=binary)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,

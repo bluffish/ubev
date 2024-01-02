@@ -91,7 +91,7 @@ def entropy_reg(alpha, beta_reg=.0005):
     return -beta_reg * reg
 
 
-def ood_reg(alpha, ood, weight=None):
+def ood_reg(alpha, ood):
     if ood.sum() == 0:
         return 0
 
@@ -102,10 +102,21 @@ def ood_reg(alpha, ood, weight=None):
 
     reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
 
-    if weight is not None:
-        reg *= weight
-
     return reg[ood.unsqueeze(1).bool()].mean()
+
+
+def ood_reg_map(alpha, ood):
+    if ood.sum() == 0:
+        return 0
+
+    alpha = alpha.permute(0, 2, 3, 1)
+
+    alpha_d = D.Dirichlet(alpha)
+    target_d = D.Dirichlet(torch.ones_like(alpha))
+
+    reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
+
+    return reg * ood
 
 
 def gamma(x):

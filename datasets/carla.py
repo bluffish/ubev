@@ -9,9 +9,10 @@ from tools.geometry import *
 
 
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, is_train):
+    def __init__(self, data_path, is_train, binary=False):
         self.is_train = is_train
         self.return_info = False
+        self.binary = binary
 
         self.data_path = data_path
 
@@ -89,12 +90,18 @@ class CarlaDataset(torch.utils.data.Dataset):
         bounding_boxes = find_bounding_boxes(ood)
         ood = draw_bounding_boxes(bounding_boxes)
 
-        empty[vehicles == 1] = 0
-        empty[road == 1] = 0
-        empty[lane == 1] = 0
-        label = np.stack((vehicles, road, lane, empty))
+        if self.binary:
+            empty[vehicles == 1] = 0
+            label = np.stack((vehicles, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood)
+            return torch.tensor(label.copy()), torch.tensor(ood)
+        else:
+            empty[vehicles == 1] = 0
+            empty[road == 1] = 0
+            empty[lane == 1] = 0
+            label = np.stack((vehicles, road, lane, empty))
+
+            return torch.tensor(label.copy()), torch.tensor(ood)
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -117,17 +124,17 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False, binary=False):
     if pseudo:
         print("USING PSEUDO")
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
-        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True, binary=binary)
+        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False, binary=binary)
     elif ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
-        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "ood"), False, binary=binary)
+        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False, binary=binary)
     else:
-        train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
-        val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "train"), True, binary=binary)
+        val_data = CarlaDataset(os.path.join(dataroot, "val"), False, binary=binary)
 
     if version == 'mini':
         g = torch.Generator()

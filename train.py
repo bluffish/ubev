@@ -14,6 +14,21 @@ np.random.seed(0)
 
 
 def train():
+    global colors, n_classes, classes, weights
+
+    if config['binary']:
+        colors = torch.tensor([
+            [0, 0, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+            [255, 255, 255],
+        ])
+
+        n_classes, classes = 2, ["vehicle", "background"]
+        weights = torch.tensor([2, 1])
+        change_params(n_classes, classes, colors, weights)
+
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
@@ -21,9 +36,9 @@ def train():
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        # pseudo=config['ood'],
-        pseudo=False,
-        ood=config['ood']
+        pseudo=config['ood'],
+        ood=config['ood'],
+        binary=config['binary']
     )
 
     model = models[config['type']](
@@ -210,6 +225,7 @@ if __name__ == "__main__":
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--scale', required=False, type=str)
     parser.add_argument('--k', required=False, type=float)
+    parser.add_argument('--binary', default=False, action='store_true')
 
     args = parser.parse_args()
 

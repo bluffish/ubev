@@ -41,6 +41,17 @@ n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 weights = torch.tensor([3., 1., 2., 1.])
 
 
+def change_params(n, c, co, w):
+    global n_classes
+    global classes
+    global colors
+    global weights
+    n_classes = n
+    classes = c
+    colors = co
+    weights = w
+
+
 def run_loader(model, loader):
     predictions = []
     ground_truth = []

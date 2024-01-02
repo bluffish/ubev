@@ -2,7 +2,10 @@ import seaborn as sns
 import torch.nn.functional
 import pandas as pd
 
+from tools.loss import ood_reg
+
 torch.set_printoptions(precision=10)
+from sklearn.calibration import calibration_curve
 
 from train import *
 
@@ -21,6 +24,11 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 
+def add_labels(x, y, ax):
+    for i in range(len(x)):
+        ax.text(i, y[i], f"{y[i]:.3f}", ha='center')
+
+
 def scatter(x, classes, colors):
     cps_df = pd.DataFrame(columns=['CP1', 'CP2', 'target'],
                           data=np.column_stack((x, colors)))
@@ -36,12 +44,28 @@ def scatter(x, classes, colors):
 
 
 def eval(config, set, split, dataroot):
+    global colors, n_classes, classes, weights
+
+    if config['binary']:
+        colors = torch.tensor([
+            [0, 0, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+            [255, 255, 255],
+        ])
+
+        n_classes, classes = 2, ["vehicle", "background"]
+        weights = torch.tensor([2, 1])
+        change_params(n_classes, classes, colors, weights)
+
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         ood=config['ood'],
-        pseudo=config['pseudo']
+        pseudo=config['pseudo'],
+        binary=config['binary']
     )
 
     model = models[config['type']](
@@ -70,7 +94,7 @@ def eval(config, set, split, dataroot):
     print(f"Pretrained: {config['pretrained']} ")
     print("--------------------------------------------------")
 
-    if config['tsne']:
+    if 'tsne' in config and config['tsne']:
         print("Running TSNE...")
 
         tsne = TSNE(n_components=2, n_jobs=-1, perplexity=50)
@@ -156,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument('--set', default="val", required=False, type=str)
     parser.add_argument('-t', '--tsne', default=False, action='store_true')
     parser.add_argument('--pseudo', default=False, action='store_true')
+    parser.add_argument('--binary', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -190,9 +215,17 @@ if __name__ == "__main__":
     print(f"Brier: {brier:.3f}")
     print(f"ECE: {ece:.3f}")
 
+    print(raw.shape)
+    print(ground_truth[:, 0].mean())
+    print(oods.float().mean())
+
     if config['ood']:
         uncertainty_scores = epistemic.squeeze(1)
         uncertainty_labels = oods
+
+        oodr = ood_reg(raw, oods)
+
+        print(f"OOD REG VALUE: {oodr}, MEAN EPIS: {epistemic.mean().item()}, MEAN VAR: {uncertainty_scores[~uncertainty_labels].var().item()}")
         print("EVAL OOD")
     else:
         uncertainty_scores = aleatoric.squeeze(1)
@@ -252,8 +285,94 @@ if __name__ == "__main__":
 
         save_path = os.path.join(config['logdir'], f"rocpr_{'o' if config['ood'] else 'm'}_{name}.png")
 
-        print(f"UNCERTAINTY IOU: {get_iou(torch.cat((uncertainty_scores[:, None], 1-uncertainty_scores[:, None]), dim=1), torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))}")
+        print(f"UNCERTAINTY IOU: {unc_iou(uncertainty_scores, uncertainty_labels, thresh=.5)}")
         print(f"AUROC: {auroc:.3f} AP: {ap:.3f}")
+    elif metric == "grid":
+        fig, axs = plt.subplots(3, 3, figsize=(18, 18))
+
+        fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+
+        axs[0, 0].plot(fpr, tpr, 'b-', label=f'AUROC={auroc:.3f}')
+        axs[0, 0].plot([0, 1], [0, 1], linestyle='--', color='gray', label='No Skill - 0.500')
+        axs[0, 0].set_xlabel('False Positive Rate')
+        axs[0, 0].set_ylabel('True Positive Rate')
+        axs[0, 0].tick_params(axis='x', which='both', bottom=True)
+        axs[0, 0].tick_params(axis='y', which='both', left=True)
+        axs[0, 0].legend()
+        axs[0, 0].set_title("OOD AUROC")
+
+        axs[0, 1].step(rec, pr, '-', where='post', label=f'AP={ap:.3f}')
+        axs[0, 1].plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
+        axs[0, 1].set_xlabel('Recall')
+        axs[0, 1].set_ylabel('Precision')
+        axs[0, 1].tick_params(axis='x', which='both', bottom=True)
+        axs[0, 1].tick_params(axis='y', which='both', left=True)
+        axs[0, 1].legend()
+        axs[0, 1].set_title("OOD AP")
+
+        axs[0, 2].hist(epistemic[~oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="ID", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
+        axs[0, 2].hist(epistemic[oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="OOD", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
+        axs[0, 2].legend()
+        axs[0, 2].set_title("Epistemic Unc. Dist.")
+
+        uncertainty_scores = aleatoric.squeeze(1)
+        uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
+        fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+
+        axs[1, 0].plot(fpr, tpr, 'r-', label=f'AUROC={auroc:.3f}')
+        axs[1, 0].plot([0, 1], [0, 1], linestyle='--', color='gray', label='No Skill - 0.500')
+        axs[1, 0].set_xlabel('False Positive Rate')
+        axs[1, 0].set_ylabel('True Positive Rate')
+        axs[1, 0].tick_params(axis='x', which='both', bottom=True)
+        axs[1, 0].tick_params(axis='y', which='both', left=True)
+        axs[1, 0].legend()
+        axs[1, 0].set_title("Misc. AUROC")
+
+        axs[1, 1].step(rec, pr, 'r-', where='post', label=f'AP={ap:.3f}')
+        axs[1, 1].plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
+        axs[1, 1].set_xlabel('Recall')
+        axs[1, 1].set_ylabel('Precision')
+        axs[1, 1].tick_params(axis='x', which='both', bottom=True)
+        axs[1, 1].tick_params(axis='y', which='both', left=True)
+        axs[1, 1].legend()
+        axs[1, 1].set_title("Misc. AP")
+
+        mis = (torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()).unsqueeze(1)
+        axs[1, 2].hist(aleatoric[mis].ravel().cpu().numpy(), label="Misclassified", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled',)
+        axs[1, 2].hist(aleatoric[~mis].ravel().cpu().numpy(), label="Correctly Classified", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled',)
+        axs[1, 2].legend()
+        axs[1, 2].set_title("Aleatoric Unc. Dist.")
+
+        if config['binary']:
+            classes = ["Vehicle", "Backg."]
+            axs[2, 0].bar(classes, iou, color=['blue', 'red'])
+        else:
+            classes = ["Vehicle", "Road", "Lane", "Backg."]
+            axs[2, 0].bar(classes, iou, color=['blue', 'green', 'red', 'purple'])
+
+        axs[2, 0].set_title("Class IOUs")
+        add_labels(classes, iou, axs[2, 0])
+
+        midpoints, accuracies, mean_confidences = calibration_curve(predictions.numpy(), ground_truth.numpy(), bins=10)
+
+        axs[2, 1].bar(midpoints, accuracies, width=1.0 / float(10), align='center', lw=1, ec='#000000', fc='#2233aa',
+                alpha=1, label=f'ECE={ece:.5f}', zorder=0)
+        axs[2, 1].scatter(midpoints, accuracies, lw=2, ec='black', fc="#ffffff", zorder=2)
+        axs[2, 1].plot(np.linspace(0, 1.0, 20), np.linspace(0, 1.0, 20), '--', lw=2, alpha=.7, color='gray',
+                 label='Perfectly Calibrated', zorder=1)
+
+        axs[2, 1].set_xlim(0.0, 1.0)
+        axs[2, 1].set_ylim(0.0, 1.0)
+        axs[2, 1].set_xlabel('Confidence')
+        axs[2, 1].set_ylabel('Accuracy')
+        axs[2, 1].set_title("Calibration Plot")
+        axs[2, 1].set_xticks(midpoints, rotation=-45)
+        axs[2, 1].legend()
+
+        axs[2, 2].axis("off")
+
+        fig.tight_layout()
+        save_path = os.path.join(config['logdir'], f"grid_{name}.png")
     else:
         raise ValueError("Please pick a valid metric.")
 

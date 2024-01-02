@@ -32,8 +32,8 @@ def get_iou(preds, labels, exclude=None):
     return iou
 
 
-def unc_iou(y_score, y_true):
-    pred = (y_score > .1).bool()
+def unc_iou(y_score, y_true, thresh=.5):
+    pred = (y_score > thresh).bool()
     target = y_true.bool()
 
     intersect = (pred & target).sum()
@@ -179,7 +179,7 @@ def brier_score(y_pred, y_true, exclude=None):
     brier = torch.nn.functional.mse_loss(y_pred, y_true, reduction='none')
 
     if exclude is not None:
-        brier = brier[~exclude.unsqueeze(1).repeat(1, 4, 1, 1)]
+        brier = brier[~exclude.unsqueeze(1).repeat(1, y_pred.shape[1], 1, 1)]
 
     return brier.mean()
 
@@ -200,3 +200,29 @@ def tsne(y_pred, y_true, perplexity=10):
     plt.xlabel('t-SNE Feature 1')
     plt.ylabel('t-SNE Feature 2')
     plt.show()
+
+
+def calibration_curve(probs, labels, bins=10):
+    n_classes = probs.shape[1]
+
+    step_size = 1.0 / bins
+    labels_ohe = labels
+
+    midpoints = []
+    mean_confidences = []
+    accuracies = []
+
+    for i in range(bins):
+        beg = i * step_size
+        end = (i + 1) * step_size
+
+        bin_mask = (probs >= beg) & (probs < end)
+        bin_cnt = bin_mask.astype(np.float32).sum()
+        bin_confs = probs[bin_mask]
+        bin_acc = labels_ohe[bin_mask].sum() / bin_cnt
+
+        midpoints.append((beg+end)/2.)
+        mean_confidences.append(np.mean(bin_confs))
+        accuracies.append(bin_acc)
+
+    return midpoints, accuracies, mean_confidences

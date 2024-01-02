@@ -57,23 +57,27 @@ if __name__ == "__main__":
     config['ood'] = True
     config['tsne'] = False
     config['gpus'] = [3, 4, 5, 6]
+    config['binary'] = False
 
     sets = {
-        #"train": "Train-Pseudo",
-        #"val": "Val-Pseudo",
+        "train": "Train-Pseudo",
+        "val": "Val-Pseudo",
         "ood": "OOD-True",
     }
 
-    models = {}
+    models = {
+        "LSS_UCE_4CLASS": "./outputs/carla/aug/lss_uce_ol=.1_k=0/19.pt",
+        # "LSS_UCE_2CLASS": "./outputs_bin/carla/aug/lss_uce_ol=.1_k=0/19.pt",
+    }
 
-    losses = ["UCE", "UFocal"]
-    ols = [".01", ".1", "1"]
-    vacs = ["0", "8", "32", "64"]
-
-    for loss in losses:
-        for ol in ols:
-            for vac in vacs:
-                models[f"LSS-{loss}-OODReg={ol}-Vac={vac}"] = f"./outputs/grid/{loss.lower()}_ol={ol}_k={vac}/19.pt"
+    # losses = ["UCE", "UFocal"]
+    # ols = [".01", ".1", "1"]
+    # vacs = ["0", "8", "32", "64"]
+    #
+    # for loss in losses:
+    #     for ol in ols:
+    #         for vac in vacs:
+    #             models[f"LSS-{loss}-OODReg={ol}-Vac={vac}"] = f"./outputs/grid/{loss.lower()}_ol={ol}_k={vac}/19.pt"
 
     print(models)
 
@@ -83,7 +87,6 @@ if __name__ == "__main__":
         set_name = sets[lset]
         for name in models:
             path = models[name]
-
 
             kset = None
             if lset == 'val' or lset == 'train':
