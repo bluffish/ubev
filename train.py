@@ -4,7 +4,6 @@ from time import time
 from tensorboardX import SummaryWriter
 from tools.metrics import *
 from tools.utils import *
-import importlib
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')

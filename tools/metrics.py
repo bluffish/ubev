@@ -1,9 +1,6 @@
 import cv2
 import numpy as np
 import torch
-from time import time
-
-from sklearn.manifold import TSNE
 from sklearn.metrics import *
 from sklearn.calibration import *
 import torchmetrics
@@ -184,45 +181,31 @@ def brier_score(y_pred, y_true, exclude=None):
     return brier.mean()
 
 
-def tsne(y_pred, y_true, perplexity=10):
-    y_true = y_true.argmax(dim=1)
-    X_tsne = TSNE(n_components=2, learning_rate='auto', init = 'random', perplexity=perplexity).fit_transform(y_pred)
+def plot_acc_calibration(ax, mask, pred, labels, title='Calibration Plot', n_bins=20):
+    mask = mask.permute(0, 2, 3, 1).reshape(-1)
+    pred = pred.permute(0, 2, 3, 1).reshape(-1, pred.shape[1])
+    labels = labels.permute(0, 2, 3, 1).reshape(-1, pred.shape[1]).argmax(dim=-1)
 
-    plt.figure(figsize=(12, 8))
-    colors = ['r', 'g', 'b', 'y']
+    pred_label = torch.max(pred[mask], 1)[1]
+    p_value = torch.max(pred[mask], 1)[0]
+    ground_truth = labels[mask]
 
-    for i in range(4):
-        mask = y_true == i
+    intervals = (p_value * n_bins).to(torch.int64).clamp(0, n_bins - 1)
 
-    plt.scatter(X_tsne[mask, 0], X_tsne[mask, 1], c=colors[i], label=f'Class {i}')
-    plt.legend()
-    plt.title('t-SNE Visualization of Semantic Segmentation Classes')
-    plt.xlabel('t-SNE Feature 1')
-    plt.ylabel('t-SNE Feature 2')
-    plt.show()
+    confidence_all = torch.bincount(intervals, minlength=n_bins).numpy()
+    confidence_acc = torch.bincount(intervals, weights=(pred_label == ground_truth).to(torch.float32),
+                                    minlength=n_bins).numpy()
 
+    confidence_acc[confidence_all > 0] /= confidence_all[confidence_all > 0]
 
-def calibration_curve(probs, labels, bins=10):
-    n_classes = probs.shape[1]
+    bin_edges = np.linspace(0, 1, n_bins + 1)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    step_size = 1.0 / bins
-    labels_ohe = labels
+    ax.bar(bin_centers, confidence_acc, alpha=0.7, width=bin_edges[1] - bin_edges[0], color='dodgerblue',
+           label=f'Outputs')
+    ax.plot([0, 1], [0, 1], ls='--', c='k')
 
-    midpoints = []
-    mean_confidences = []
-    accuracies = []
-
-    for i in range(bins):
-        beg = i * step_size
-        end = (i + 1) * step_size
-
-        bin_mask = (probs >= beg) & (probs < end)
-        bin_cnt = bin_mask.astype(np.float32).sum()
-        bin_confs = probs[bin_mask]
-        bin_acc = labels_ohe[bin_mask].sum() / bin_cnt
-
-        midpoints.append((beg+end)/2.)
-        mean_confidences.append(np.mean(bin_confs))
-        accuracies.append(bin_acc)
-
-    return midpoints, accuracies, mean_confidences
+    ax.set_xlabel('Confidence')
+    ax.set_ylabel('Accuracy')
+    ax.set_title(title)
+    ax.legend()
