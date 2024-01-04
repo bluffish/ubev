@@ -1,7 +1,14 @@
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+import seaborn as sns
 
-plt.rcParams.update(plt.rcParamsDefault)
-plt.style.use("dark_background")
+sns.set_style('white')
+sns.set_palette('muted')
+sns.set_context(
+    "notebook",
+    font_scale=1.25,
+    rc={"lines.linewidth": 2.5}
+)
 
 
 def plot_roc(ax, fpr, tpr, auroc):

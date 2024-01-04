@@ -1,19 +1,19 @@
-uce:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: '../outputs/aug/none/19.pt'
-  label: "UCE OOD Reg."
-
 ufocal:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: '../outputs/aug/none_focal/19.pt'
-  label: "UFocal OOD Reg."
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/grid/vehicle/lss_ufocal/19.pt'
+  label: "LSS UFocal"
 
-ucevac:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: '../outputs/aug/vac_128/19.pt'
-  label: "UCE OOD Reg. + Vacuity"
+uce_beta=.01:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/grid/vehicle/lss_uce_beta=.01/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.01"
 
-ufocalvac:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: '../outputs/aug/vac_focal_128/19.pt'
-  label: "UFocal OOD Reg. + Vacuity"
+uce_beta=.001:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/grid/vehicle/lss_uce_beta=.001/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.001"
+
+uce_beta=.0005:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/grid/vehicle/lss_uce_beta=.0005/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.0005"

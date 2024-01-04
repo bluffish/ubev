@@ -9,10 +9,10 @@ from tools.geometry import *
 
 
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, is_train, binary=False):
+    def __init__(self, data_path, is_train, pos_class):
         self.is_train = is_train
         self.return_info = False
-        self.binary = binary
+        self.pos_class = pos_class
 
         self.data_path = data_path
 
@@ -90,18 +90,30 @@ class CarlaDataset(torch.utils.data.Dataset):
         bounding_boxes = find_bounding_boxes(ood)
         ood = draw_bounding_boxes(bounding_boxes)
 
-        if self.binary:
+        if self.pos_class == 'vehicle':
             empty[vehicles == 1] = 0
             label = np.stack((vehicles, empty))
 
-            return torch.tensor(label.copy()), torch.tensor(ood)
-        else:
-            empty[vehicles == 1] = 0
-            empty[road == 1] = 0
-            empty[lane == 1] = 0
-            label = np.stack((vehicles, road, lane, empty))
+        elif self.pos_class == 'road':
+            road[lane == 1] = 1
+            road[vehicles == 1] = 1
 
-            return torch.tensor(label.copy()), torch.tensor(ood)
+            road = (road * 255).astype(np.uint8)
+            kernel_size = 2
+
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+            road = cv2.dilate(road, kernel, iterations=1)
+            road = cv2.erode(road, kernel, iterations=1)
+
+            empty[road == 1] = 0
+
+            label = np.stack((road, empty))
+        elif self.pos_class == 'lane':
+            empty[lane == 1] = 0
+
+            label = np.stack((lane, empty))
+
+        return torch.tensor(label.copy()), torch.tensor(ood)
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -124,17 +136,17 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False, binary=False):
+def compile_data(version, dataroot, pos_class, batch_size=8, num_workers=16, ood=False, pseudo=False):
     if pseudo:
         print("USING PSEUDO")
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True, binary=binary)
-        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False, binary=binary)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True, pos_class)
+        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False, pos_class)
     elif ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "ood"), False, binary=binary)
-        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False, binary=binary)
+        train_data = CarlaDataset(os.path.join(dataroot, "ood"), False, pos_class)
+        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False, pos_class)
     else:
-        train_data = CarlaDataset(os.path.join(dataroot, "train"), True, binary=binary)
-        val_data = CarlaDataset(os.path.join(dataroot, "val"), False, binary=binary)
+        train_data = CarlaDataset(os.path.join(dataroot, "train"), True, pos_class)
+        val_data = CarlaDataset(os.path.join(dataroot, "val"), False, pos_class)
 
     if version == 'mini':
         g = torch.Generator()

@@ -39,20 +39,24 @@ class Model(nn.Module):
         self.backbone = nn.DataParallel(
             backbones[backbone](n_classes=self.n_classes).to(self.device),
             output_device=self.device,
-            device_ids=self.devices
+            device_ids=self.devices,
         )
 
     @staticmethod
-    def aleatoric(x): pass
-    
-    @staticmethod
-    def epistemic(x): pass
+    def aleatoric(x):
+        pass
 
     @staticmethod
-    def activate(x): pass
+    def epistemic(x):
+        pass
 
     @staticmethod
-    def loss(x, gt): pass
+    def activate(x):
+        pass
+
+    @staticmethod
+    def loss(x, gt):
+        pass
 
     def state_dict(self, epoch=-1):
         return {

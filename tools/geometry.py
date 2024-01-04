@@ -208,7 +208,8 @@ def find_bounding_boxes(mask):
 
             (center_x, center_y), (width, height), angle = bounding_box
             area = width * height
-            if area > 100:
+
+            if area > 50:
                 continue
 
             bounding_boxes.append(((center_x, center_y), (width+2, height+2), angle))

@@ -8,6 +8,10 @@ from tools.utils import *
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+torch.set_float32_matmul_precision('high')
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -15,29 +19,30 @@ np.random.seed(0)
 def train():
     global colors, n_classes, classes, weights
 
-    if config['binary']:
-        colors = torch.tensor([
-            [0, 0, 255],
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-            [255, 255, 255],
-        ])
-
+    if config['pos_class'] == 'vehicle':
         n_classes, classes = 2, ["vehicle", "background"]
         weights = torch.tensor([2, 1])
         change_params(n_classes, classes, colors, weights)
+    elif config['pos_class'] == 'road':
+        n_classes, classes = 2, ["road", "background"]
+        weights = torch.tensor([1, 1])
+        change_params(n_classes, classes, colors, weights)
+    elif config['pos_class'] == 'lane':
+        n_classes, classes = 2, ["lane", "background"]
+        weights = torch.tensor([5, 1])
+        change_params(n_classes, classes, colors, weights)
+    else:
+        raise NotImplementedError("Invalid Positive Class")
 
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
     train_loader, val_loader = datasets[config['dataset']](
-        split, dataroot,
+        split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         pseudo=config['ood'],
         ood=config['ood'],
-        binary=config['binary']
     )
 
     model = models[config['type']](
@@ -82,6 +87,10 @@ def train():
     if 'k' in config:
         model.k = config['k']
         print(f"Scaling with {model.scale}")
+
+    if 'beta' in config:
+        model.beta_lambda = config['beta']
+        print(f"Beta lambda is {model.beta_lambda}")
 
     if 'scale' in config:
         model.scale = config['scale']
@@ -149,7 +158,7 @@ def train():
         iou = get_iou(predictions, ground_truth)
 
         for i in range(0, n_classes):
-            writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)\
+            writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
 
         print(f"Validation mIOU: {iou}")
 
@@ -174,7 +183,7 @@ def train():
 
             writer.add_scalar('val/ood_loss', ood_loss, epoch)
             writer.add_scalar(f"val/loss", val_loss, epoch)
-            writer.add_scalar(f"val/uce_loss", val_loss-ood_loss, epoch)
+            writer.add_scalar(f"val/uce_loss", val_loss - ood_loss, epoch)
 
             uncertainty_scores = epistemic[:256].squeeze(1)
             uncertainty_labels = oods[:256].bool()
@@ -219,8 +228,11 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
+    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
+
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
+    parser.add_argument('--beta', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--scale', required=False, type=str)
     parser.add_argument('--k', required=False, type=float)

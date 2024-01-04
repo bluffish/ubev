@@ -122,8 +122,9 @@ if __name__ == "__main__":
 
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
-        config['ood'] = is_ood
+        config['ood'] = True
         config['pseudo'] = args.pseudo
+        config['binary'] = True
 
         predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, lset, split, dataroot)
 
@@ -160,7 +161,7 @@ if __name__ == "__main__":
 
             print(f"AU-p(accurate|certain) - {au_agc:.3f}, AU-P(uncertain|inaccurate) - {au_ugi:.3f}")
         elif metric == "rocpr":
-            fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+            fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels, exclude=oods)
 
             ax1.plot(fpr, tpr, '-', label=f'{label}: {auroc:.3f}')
             ax2.step(rec, pr, '-', where='post', label=f'{label}: {ap:.3f}')
@@ -228,5 +229,6 @@ if __name__ == "__main__":
     else:
         fig.suptitle(title)
 
-    save_path = f"{logdir}/{metric}_{'o' if is_ood else 'm'}_{set_name}.png"
+    save_path = f"{logdir}/{metric}_{'o' if is_ood else 'm'}_{set_name}"
     fig.savefig(save_path)
+    fig.savefig(f"{save_path}.pdf", format='pdf')

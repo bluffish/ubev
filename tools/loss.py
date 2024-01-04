@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from tools.uncertainty import *
 import torch.nn as nn
 
-
 def ce_loss(logits, target, weights=None):
     return F.cross_entropy(logits, target, weight=weights, reduction='none')
 
@@ -21,10 +20,8 @@ def bce_loss(logits, target, weights=None):
 
 
 def focal_loss(logits, target, weights=None, n=2):
-    # (N, C, d1, d2, ..., dK) --> (N * d1 * ... * dK, C)
     c = logits.shape[1]
     x = logits.permute(0, *range(2, logits.ndim), 1).reshape(-1, c)
-    # (N, d1, d2, ..., dK) --> (N * d1 * ... * dK,)
     target = target.argmax(dim=1).long()
     target = target.view(-1)
 
@@ -36,7 +33,6 @@ def focal_loss(logits, target, weights=None, n=2):
     pt = log_pt.exp()
     focal_term = (1 - pt + 1e-12) ** n
 
-    # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
     loss = focal_term * ce
 
     return loss

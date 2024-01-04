@@ -4,6 +4,7 @@ from train import *
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
+torch.set_float32_matmul_precision('high')
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -109,7 +110,6 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)
     parser.add_argument('--set', default="val", required=False, type=str)
-    parser.add_argument('-t', '--tsne', default=False, action='store_true')
     parser.add_argument('--pseudo', default=False, action='store_true')
     parser.add_argument('--binary', default=False, action='store_true')
 
@@ -204,7 +204,9 @@ if __name__ == "__main__":
         fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
         plot_roc(axs[0, 0], fpr, tpr, auroc)
-        plot_pr(axs[1], rec, pr, aupr)
+        plot_pr(axs[0, 1], rec, pr, aupr)
+        axs[1, 0].set_title("OOD AUROC")
+        axs[1, 1].set_title("OOD AUPR")
 
         axs[0, 2].hist(epistemic[~oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="ID", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
         axs[0, 2].hist(epistemic[oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="OOD", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
@@ -215,23 +217,11 @@ if __name__ == "__main__":
         uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
         fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
-        axs[1, 0].plot(fpr, tpr, 'r-', label=f'AUROC={auroc:.3f}')
-        axs[1, 0].plot([0, 1], [0, 1], linestyle='--', color='gray', label='No Skill - 0.500')
-        axs[1, 0].set_xlabel('False Positive Rate')
-        axs[1, 0].set_ylabel('True Positive Rate')
-        axs[1, 0].tick_params(axis='x', which='both', bottom=True)
-        axs[1, 0].tick_params(axis='y', which='both', left=True)
-        axs[1, 0].legend()
+        plot_roc(axs[1, 0], fpr, tpr, auroc)
+        plot_pr(axs[1, 1], rec, pr, aupr)
         axs[1, 0].set_title("Misc. AUROC")
+        axs[1, 1].set_title("Misc. AUPR")
 
-        axs[1, 1].step(rec, pr, 'r-', where='post', label=f'AP={ap:.3f}')
-        axs[1, 1].plot([0, 1], [no_skill, no_skill], linestyle='--', color='gray', label=f'No Skill - {no_skill:.3f}')
-        axs[1, 1].set_xlabel('Recall')
-        axs[1, 1].set_ylabel('Precision')
-        axs[1, 1].tick_params(axis='x', which='both', bottom=True)
-        axs[1, 1].tick_params(axis='y', which='both', left=True)
-        axs[1, 1].legend()
-        axs[1, 1].set_title("Misc. AP")
 
         mis = (torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()).unsqueeze(1)
         axs[1, 2].hist(aleatoric[mis].ravel().cpu().numpy(), label="Misclassified", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled',)
@@ -251,24 +241,8 @@ if __name__ == "__main__":
 
         plot_acc_calibration(axs[2, 1], ~oods.unsqueeze(1), predictions, ground_truth)
 
-        # midpoints, accuracies, ece = calibration_curve(predictions.numpy(), ground_truth.numpy(), bins=10)
-
-        # axs[2, 1].bar(midpoints, accuracies, width=1.0 / float(10), align='center', lw=1, ec='#000000', fc='#2233aa',
-        #         alpha=1, label=f'ECE={ece:.5f}', zorder=0)
-        # axs[2, 1].scatter(midpoints, accuracies, lw=2, ec='black', fc="#ffffff", zorder=2)
-        # axs[2, 1].plot(np.linspace(0, 1.0, 20), np.linspace(0, 1.0, 20), '--', lw=2, alpha=.7, color='gray',
-        #          label='Perfectly Calibrated', zorder=1)
-        # axs[2, 1].set_xlim(0.0, 1.0)
-        # axs[2, 1].set_ylim(0.0, 1.0)
-        # axs[2, 1].set_xlabel('Confidence')
-        # axs[2, 1].set_ylabel('Accuracy')
-        # axs[2, 1].set_title("Calibration Plot")
-        # axs[2, 1].set_xticks(midpoints, rotation=-45)
-        # axs[2, 1].legend()
-
         axs[2, 2].axis("off")
 
-        fig.tight_layout()
         save_path = os.path.join(config['logdir'], f"grid_{name}")
     else:
         raise ValueError("Please pick a valid metric.")
@@ -276,4 +250,4 @@ if __name__ == "__main__":
     fig.savefig(f"{save_path}.png", bbox_inches='tight')
     fig.savefig(f"{save_path}.pdf", bbox_inches='tight', format='pdf')
 
-    print(f"Graph saved to {save_path}")
+    print(f"Graph saved to {save_path}.png/pdf")

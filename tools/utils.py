@@ -37,8 +37,8 @@ datasets = {
     'carla': compile_data_carla,
 }
 
-n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
-weights = torch.tensor([3., 1., 2., 1.])
+n_classes, classes = 2, ["vehicle", "background"]
+weights = torch.tensor([2, 1])
 
 
 def change_params(n, c, co, w):
@@ -46,6 +46,7 @@ def change_params(n, c, co, w):
     global classes
     global colors
     global weights
+
     n_classes = n
     classes = c
     colors = co

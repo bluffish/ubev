@@ -27,10 +27,10 @@ if __name__ == "__main__":
     config['binary'] = True
 
     if config['binary']:
-        tags = ["Vehicle mIOU", "Road mIOU", "Lane mIOU", "Background mIOU", "OOD mIOU",
+        tags = ["Vehicle mIOU", "Background mIOU", "Lane mIOU", "Road mIOU", "OOD mIOU",
                 "Total Loss", "OOD Reg.", "UCE/UFocal Loss", "OOD AUPR", "OOD AUROC"]
     else:
-        tags = ["Vehicle mIOU", "Background mIOU", "Lane mIOU", "Road mIOU", "OOD mIOU",
+        tags = ["Vehicle mIOU", "Road mIOU", "Lane mIOU", "Background mIOU", "OOD mIOU",
                 "Total Loss", "OOD Reg.", "UCE/UFocal Loss", "OOD AUPR", "OOD AUROC"]
 
     sets = {
@@ -42,9 +42,10 @@ if __name__ == "__main__":
     epochs = np.linspace(0, 19, 20)
 
     models = {
-        # "LSS_UCE_Bin_OODReg=.1": "./outputs_bin/carla/aug/lss_uce_ol=.1_k=0",
-        # "LSS_UCE_Four_OODReg=.1": "./outputs/carla/aug/lss_uce_ol=.1_k=0",
-        "LSS_UFocal_Bin_OODReg=1_Vac=32": "./outputs_bin/carla/aug/lss_ufocal_nopretrain_ol=1_k=32"
+        "LSS UCE Entropy Beta=.01": "./outputs_bin/grid/vehicle/lss_uce_beta=.01",
+        "LSS UCE Entropy Beta=.001": "./outputs_bin/grid/vehicle/lss_uce_beta=.001",
+        "LSS UCE Entropy Beta=.0005": "./outputs_bin/grid/vehicle/lss_uce_beta=.0005",
+        "LSS UCE Entropy Beta=.0005": "./outputs_bin/grid/vehicle/lss_ufocal",
     }
 
     for name in models:

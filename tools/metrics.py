@@ -4,7 +4,6 @@ import torch
 from sklearn.metrics import *
 from sklearn.calibration import *
 import torchmetrics
-import matplotlib.pyplot as plt
 
 
 def get_iou(preds, labels, exclude=None):
@@ -107,42 +106,15 @@ def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0
     return pavpu, a_given_c, u_given_i
 
 
-def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
-    if window_size == 1:
-        y_true = uncertainty_labels.flatten().numpy()
-        y_score = uncertainty_scores.flatten().numpy()
-    else:
-        y_true = []
-        y_score = []
+def roc_pr(uncertainty_scores, uncertainty_labels, exclude=None):
 
-        anchor = (0, 0)
-        last_anchor = (uncertainty_labels.shape[1] - window_size, uncertainty_labels.shape[2] - window_size)
+    y_true = uncertainty_labels.flatten().numpy()
+    y_score = uncertainty_scores.flatten().numpy()
 
-        while anchor != last_anchor:
-            label_window = uncertainty_labels[:,
-                           anchor[0]:anchor[0] + window_size,
-                           anchor[1]:anchor[1] + window_size
-                           ]
-
-            uncertainty_window = uncertainty_scores[:,
-                                 anchor[0]:anchor[0] + window_size,
-                                 anchor[1]:anchor[1] + window_size
-                                 ]
-
-            accuracy = (torch.sum(label_window, dim=(1, 2)) / (window_size ** 2)) > .5
-            uncertainty = torch.mean(uncertainty_window, dim=(1, 2))
-
-            for i in range(accuracy.shape[0]):
-                y_true.append(accuracy[i].item())
-                y_score.append(uncertainty[i].item())
-
-            if anchor[1] < uncertainty_labels.shape[1] - window_size:
-                anchor = (anchor[0], anchor[1] + 1)
-            else:
-                anchor = (anchor[0] + 1, 0)
-
-        y_true = np.array(y_true)
-        y_score = np.array(y_score)
+    if exclude is not None:
+        include = ~exclude.flatten().numpy()
+        y_true = y_true[include]
+        y_score = y_score[include]
 
     pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
     fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
