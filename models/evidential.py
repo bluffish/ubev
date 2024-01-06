@@ -77,7 +77,7 @@ class Evidential(Model):
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
 
-        A = A[(1 - ood).unsqueeze(1).bool()].mean()
+        A = A[~ood.bool()].mean()
 
         A += oreg
 

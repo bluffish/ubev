@@ -24,9 +24,9 @@ if __name__ == "__main__":
 
     config['ood'] = True
     config['gpus'] = [5, 6]
-    config['binary'] = True
+    config['pos_class'] = 'vehicle'
 
-    if config['binary']:
+    if config['pos_class'] == 'vehicle':
         tags = ["Vehicle mIOU", "Background mIOU", "Lane mIOU", "Road mIOU", "OOD mIOU",
                 "Total Loss", "OOD Reg.", "UCE/UFocal Loss", "OOD AUPR", "OOD AUROC"]
     else:
@@ -42,10 +42,7 @@ if __name__ == "__main__":
     epochs = np.linspace(0, 19, 20)
 
     models = {
-        "LSS UCE Entropy Beta=.01": "./outputs_bin/grid/vehicle/lss_uce_beta=.01",
-        "LSS UCE Entropy Beta=.001": "./outputs_bin/grid/vehicle/lss_uce_beta=.001",
-        "LSS UCE Entropy Beta=.0005": "./outputs_bin/grid/vehicle/lss_uce_beta=.0005",
-        "LSS UCE Entropy Beta=.0005": "./outputs_bin/grid/vehicle/lss_ufocal",
+        "LSS_UCE_2CLASS": "./outputs_bin/carla/aug/lss_uce_nopretrain_ol=1_k=32",
     }
 
     for name in models:

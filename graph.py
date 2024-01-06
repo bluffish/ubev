@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("set")
 
     parser.add_argument('-o', '--ood', default=False, action='store_true')
-    parser.add_argument('-l', '--logdir', required=False)
+    parser.add_argument('-l', '--logdir', default="./outputs", required=False)
     parser.add_argument('-g', '--gpus', nargs='+', required=False)
     parser.add_argument('-s', '--lset', default='val', required=False)
     parser.add_argument('-t', '--title', required=False)
@@ -44,11 +44,7 @@ if __name__ == "__main__":
 
     set_name = args.set.split('.')[-2].split('/')[-1]
     names = list(set.keys())
-
-    if args.logdir is not None:
-        logdir = args.logdir
-    else:
-        logdir = './outputs'
+    logdir = args.logdir
 
     os.makedirs(logdir, exist_ok=True)
 
@@ -222,7 +218,7 @@ if __name__ == "__main__":
         ax2.plot([0, 1], [no_skill_total / len(names), no_skill_total / len(names)], linestyle='--', color='gray', label=f'No Skill: {no_skill:.3f}')
 
         ax1.legend(frameon=True, title="AUROC")
-        ax2.legend(frameon=True, title='AP')
+        ax2.legend(frameon=True, title='AUPR')
 
     if title is None:
         fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'}")

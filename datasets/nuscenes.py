@@ -15,10 +15,10 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, ood=False, pseudo=False, binary=False):
+    def __init__(self, nusc, is_train, pos_class, ood=False, pseudo=False, binary=False):
         self.ood = ood
         self.pseudo = pseudo
-        self.binary = binary
+        self.pos_class = pos_class
 
         self.true_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
         self.pseudo_ood = ["vehicle.motorcycle"]
@@ -112,12 +112,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 pseudo.append(rec)
             else:
                 id.append(rec)
-
-        print(len(id))
-        print(len(ood))
-        print(len(pseudo))
-        print(len(both))
-        print("---")
 
         if self.ood and not self.pseudo:
             return ood
@@ -225,25 +219,26 @@ class NuScenesDataset(torch.utils.data.Dataset):
         road, lane = self.get_map(rec)
         empty = np.ones(self.bev_dimension[:2])
 
-        road[lane == 1] = 0
-        road[vehicles == 1] = 0
-        lane[vehicles == 1] = 0
-
-        if self.binary:
+        if self.pos_class == 'vehicle':
             empty[vehicles == 1] = 0
             label = np.stack((vehicles, empty))
-            label = np.flip(label, axis=(1, 2))
-
-            return torch.tensor(label.copy()), torch.tensor(ood)
-        else:
-            empty[vehicles == 1] = 0
+        elif self.pos_class == 'road':
             empty[road == 1] = 0
+            label = np.stack((road, empty))
+        elif self.pos_class == 'lane':
             empty[lane == 1] = 0
+            label = np.stack((lane, empty))
+        elif self.pos_class == 'all':
+            empty[vehicles == 1] = 0
+            empty[lane == 1] = 0
+            empty[road == 1] = 0
 
+            road[vehicles] = 0
+            road[lane] = 0
+            lane[vehicles] = 0
             label = np.stack((vehicles, road, lane, empty))
-            label = np.flip(label, axis=(1, 2))
 
-            return torch.tensor(label.copy()), torch.tensor(ood.copy())
+        return torch.tensor(label.copy()), torch.tensor(ood[None])
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
@@ -295,26 +290,29 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False, binary=False):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=None):
+    if set == "train":
+        ood, pseudo, is_train = False, False, True
+    elif set == "val":
+        ood, pseudo, is_train = False, False, False
+    elif set == "train_aug":
+        ood, pseudo, is_train = True, True, True
+    elif set == "val_aug":
+        ood, pseudo, is_train = True, True, False
+    elif set == "ood":
+        ood, pseudo, is_train = True, False, False
+
     nusc, dataroot = get_nusc(version, dataroot)
 
-    train_data = NuScenesDataset(nusc, True, ood=ood, pseudo=pseudo, binary=binary)
-    val_data = NuScenesDataset(nusc, False, ood=ood, pseudo=pseudo, binary=binary)
+    data = NuScenesDataset(nusc, is_train, pos_class, ood=ood, pseudo=pseudo)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_data,
+    loader = torch.utils.data.DataLoader(
+        data,
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=True,
         drop_last=True,
     )
 
-    val_loader = torch.utils.data.DataLoader(
-        val_data,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=True,
-        drop_last=True,
-    )
+    return loader
 
-    return train_loader, val_loader

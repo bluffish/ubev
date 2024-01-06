@@ -98,13 +98,14 @@ class CarlaDataset(torch.utils.data.Dataset):
             road[lane == 1] = 1
             road[vehicles == 1] = 1
 
+            # this is a refinement step to remove some impurities in the label caused by small objects
             road = (road * 255).astype(np.uint8)
             kernel_size = 2
 
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
             road = cv2.dilate(road, kernel, iterations=1)
             road = cv2.erode(road, kernel, iterations=1)
-
             empty[road == 1] = 0
 
             label = np.stack((road, empty))
@@ -112,8 +113,13 @@ class CarlaDataset(torch.utils.data.Dataset):
             empty[lane == 1] = 0
 
             label = np.stack((lane, empty))
+        elif self.pos_class == 'all':
+            empty[vehicles == 1] = 0
+            empty[lane == 1] = 0
+            empty[road == 1] = 0
+            label = np.stack((vehicles, road, lane, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood)
+        return torch.tensor(label.copy()), torch.tensor(ood[None])
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -136,55 +142,29 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, pos_class, batch_size=8, num_workers=16, ood=False, pseudo=False):
-    if pseudo:
-        print("USING PSEUDO")
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True, pos_class)
-        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False, pos_class)
-    elif ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "ood"), False, pos_class)
-        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False, pos_class)
-    else:
-        train_data = CarlaDataset(os.path.join(dataroot, "train"), True, pos_class)
-        val_data = CarlaDataset(os.path.join(dataroot, "val"), False, pos_class)
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False):
+    data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
 
     if version == 'mini':
         g = torch.Generator()
         g.manual_seed(0)
 
-        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128, generator=g)
-        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128, generator=g)
+        sampler = torch.utils.data.RandomSampler(data, num_samples=128, generator=g)
 
-        train_loader = torch.utils.data.DataLoader(
-            train_data,
+        loader = torch.utils.data.DataLoader(
+            data,
             batch_size=batch_size,
             num_workers=num_workers,
             drop_last=True,
-            sampler=train_sampler
-        )
-
-        val_loader = torch.utils.data.DataLoader(
-            val_data,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            drop_last=True,
-            sampler=val_sampler,
+            sampler=sampler
         )
     else:
-        train_loader = torch.utils.data.DataLoader(
-            train_data,
+        loader = torch.utils.data.DataLoader(
+            data,
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=True,
             drop_last=True,
         )
 
-        val_loader = torch.utils.data.DataLoader(
-            val_data,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            shuffle=True,
-            drop_last=True,
-        )
-
-    return train_loader, val_loader
+    return loader

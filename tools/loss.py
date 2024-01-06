@@ -98,7 +98,7 @@ def ood_reg(alpha, ood):
 
     reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
 
-    return reg[ood.unsqueeze(1).bool()].mean()
+    return reg[ood.bool()].mean()
 
 
 def ood_reg_map(alpha, ood):

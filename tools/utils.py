@@ -41,16 +41,25 @@ n_classes, classes = 2, ["vehicle", "background"]
 weights = torch.tensor([2, 1])
 
 
-def change_params(n, c, co, w):
-    global n_classes
-    global classes
-    global colors
-    global weights
+def change_params(config):
+    global classes, n_classes, weights
 
-    n_classes = n
-    classes = c
-    colors = co
-    weights = w
+    if config['pos_class'] == 'vehicle':
+        n_classes, classes = 2, ["vehicle", "background"]
+        weights = torch.tensor([2, 1])
+    elif config['pos_class'] == 'road':
+        n_classes, classes = 2, ["road", "background"]
+        weights = torch.tensor([1, 1])
+    elif config['pos_class'] == 'lane':
+        n_classes, classes = 2, ["lane", "background"]
+        weights = torch.tensor([5, 1])
+    elif config['pos_class'] == 'all':
+        n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
+        weights = torch.tensor([3, 1, 2, 1])
+    else:
+        raise NotImplementedError("Invalid Positive Class")
+
+    return classes, n_classes, weights
 
 
 def run_loader(model, loader):
@@ -93,32 +102,36 @@ def map_rgb(onehot, ego=False):
     return rgb
 
 
-def save_unc(u_score, u_true, out_path):
+def save_unc(u_score, u_true, out_path, score_name, true_name):
     u_score = u_score.detach().cpu().numpy()
     u_true = u_true.numpy()
 
     cv2.imwrite(
-        os.path.join(out_path, "u_true.png"),
-        u_true[0] * 255
+        os.path.join(out_path, true_name),
+        u_true[0, 0] * 255
     )
 
     cv2.imwrite(
-        os.path.join(out_path, "u_score.png"),
-        cv2.cvtColor((plt.cm.inferno(u_score[0][0]) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        os.path.join(out_path, score_name),
+        cv2.cvtColor((plt.cm.inferno(u_score[0, 0]) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
     )
 
 
-def save_pred(preds, labels, out_path, ego=False):
-    if preds.shape[1] != 2:
-        pred = map_rgb(preds[0], ego=ego)
-        label = map_rgb(labels[0], ego=ego)
+def save_pred(pred, label, out_path, ego=False):
+    if pred.shape[1] != 2:
+        pred = map_rgb(pred[0], ego=ego)
+        label = map_rgb(label[0], ego=ego)
         cv2.imwrite(os.path.join(out_path, "pred.png"), pred)
         cv2.imwrite(os.path.join(out_path, "label.png"), label)
 
         return pred, label
     else:
-        cv2.imwrite(os.path.join(out_path, "pred.png"), preds[0, 0].detach().cpu().numpy() * 255)
-        cv2.imwrite(os.path.join(out_path, "label.png"), labels[0, 0].detach().cpu().numpy() * 255)
+        cv2.imwrite(os.path.join(out_path, "pred.png"), pred[0, 0].detach().cpu().numpy() * 255)
+        cv2.imwrite(os.path.join(out_path, "label.png"), label[0, 0].detach().cpu().numpy() * 255)
+
+
+def get_mis(pred, label):
+    return (pred.argmax(dim=1) != label.argmax(dim=1)).unsqueeze(1)
 
 
 def get_config(args):

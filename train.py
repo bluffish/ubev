@@ -17,32 +17,30 @@ np.random.seed(0)
 
 
 def train():
-    global colors, n_classes, classes, weights
-
-    if config['pos_class'] == 'vehicle':
-        n_classes, classes = 2, ["vehicle", "background"]
-        weights = torch.tensor([2, 1])
-        change_params(n_classes, classes, colors, weights)
-    elif config['pos_class'] == 'road':
-        n_classes, classes = 2, ["road", "background"]
-        weights = torch.tensor([1, 1])
-        change_params(n_classes, classes, colors, weights)
-    elif config['pos_class'] == 'lane':
-        n_classes, classes = 2, ["lane", "background"]
-        weights = torch.tensor([5, 1])
-        change_params(n_classes, classes, colors, weights)
-    else:
-        raise NotImplementedError("Invalid Positive Class")
+    classes, n_classes, weights = change_params(config)
 
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
-    train_loader, val_loader = datasets[config['dataset']](
-        split, dataroot, config['pos_class'],
+    if config['ood']:
+        train_set = "train_aug"
+        val_set = "val_aug"
+    else:
+        train_set = "train"
+        val_set = "val"
+
+    train_loader = datasets[config['dataset']](
+        train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        pseudo=config['ood'],
-        ood=config['ood'],
+        is_train=True
+    )
+
+    val_loader = datasets[config['dataset']](
+        val_set, split, dataroot, config['pos_class'],
+        batch_size=config['batch_size'],
+        num_workers=config['num_workers'],
+        is_train=False
     )
 
     model = models[config['type']](
@@ -141,7 +139,7 @@ def train():
                     writer.add_scalar('train/ood_loss', ood_loss, step)
 
                 if config['ood']:
-                    save_unc(model.epistemic(outs), ood, config['logdir'])
+                    save_unc(model.epistemic(outs), ood, config['logdir'], "epistemic.png", "ood.png")
                 save_pred(preds, labels, config['logdir'])
 
             if step % 50 == 0:
@@ -236,7 +234,6 @@ if __name__ == "__main__":
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--scale', required=False, type=str)
     parser.add_argument('--k', required=False, type=float)
-    parser.add_argument('--binary', default=False, action='store_true')
 
     args = parser.parse_args()
 

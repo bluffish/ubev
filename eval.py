@@ -1,10 +1,22 @@
 import torch.nn.functional
 from tools.viz import *
 from train import *
+import seaborn as sns
+
+sns.set_style('white')
+sns.set_palette('muted')
+sns.set_context(
+    "notebook",
+    font_scale=1.25,
+    rc={"lines.linewidth": 2.5}
+)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
+
 torch.set_float32_matmul_precision('high')
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -13,29 +25,15 @@ torch.set_printoptions(precision=10)
 
 
 def eval(config, set, split, dataroot):
-    global colors, n_classes, classes, weights
+    classes, n_classes, weights = change_params(config)
 
-    if config['binary']:
-        colors = torch.tensor([
-            [0, 0, 255],
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 0],
-            [255, 255, 255],
-        ])
-
-        n_classes, classes = 2, ["vehicle", "background"]
-        weights = torch.tensor([2, 1])
-        change_params(n_classes, classes, colors, weights)
-
-    train_loader, val_loader = datasets[config['dataset']](
-        split, dataroot,
+    loader = datasets[config['dataset']](
+        set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=config['ood'],
-        pseudo=config['pseudo'],
-        binary=config['binary']
     )
+
+    print(f"Using set: {set}")
 
     model = models[config['type']](
         config['gpus'],
@@ -43,16 +41,9 @@ def eval(config, set, split, dataroot):
         n_classes=n_classes
     )
 
-    if set == 'val':
-        print("Using validation set")
-        loader = val_loader
-    elif set == 'train':
-        print("Using train set")
-        loader = train_loader
-    else:
-        raise NotImplementedError()
-
     model.load(torch.load(config['pretrained']))
+    model.eval()
+    model.training = False
 
     print("--------------------------------------------------")
     print(f"Running eval on {split}")
@@ -65,31 +56,26 @@ def eval(config, set, split, dataroot):
 
     os.makedirs(config['logdir'], exist_ok=True)
 
-    predictions, ground_truths, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
+    preds, labels, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
 
     with torch.no_grad():
-        for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
-            model.eval()
-            model.training = False
+        for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation"):
+            out = model(images, intrinsics, extrinsics).detach().cpu()
+            pred = model.activate(out)
 
-            outs = model(images, intrinsics, extrinsics).detach().cpu()
-            predictions.append(model.activate(outs))
-            ground_truths.append(labels)
+            preds.append(pred)
+            labels.append(label)
             oods.append(ood.bool())
-            aleatoric.append(model.aleatoric(outs))
-            epistemic.append(model.epistemic(outs))
-            raw.append(outs)
+            aleatoric.append(model.aleatoric(out))
+            epistemic.append(model.epistemic(out))
+            raw.append(out)
 
-            if config['ood']:
-                save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
-            else:
-                save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
-                         config['logdir'])
+            save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
+            save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
+            save_pred(pred, label, config['logdir'])
 
-            save_pred(model.activate(outs), labels, config['logdir'])
-
-    return (torch.cat(predictions, dim=0),
-            torch.cat(ground_truths, dim=0),
+    return (torch.cat(preds, dim=0),
+            torch.cat(labels, dim=0),
             torch.cat(oods, dim=0),
             torch.cat(aleatoric, dim=0),
             torch.cat(epistemic, dim=0),
@@ -103,15 +89,14 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument('-s', '--split', default="mini", required=False, type=str)
+    parser.add_argument( '--split', default="mini", required=False, type=str)
+    parser.add_argument('-s', '--set', default="ood", required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
-    parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)
-    parser.add_argument('--set', default="val", required=False, type=str)
     parser.add_argument('--pseudo', default=False, action='store_true')
-    parser.add_argument('--binary', default=False, action='store_true')
+    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
     args = parser.parse_args()
 
@@ -120,134 +105,40 @@ if __name__ == "__main__":
 
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
-
-    split = args.split
-    metric = args.metric
-    set = args.set
+    else:
+        torch.backends.cudnn.enabled = True
 
     dataroot = f"../data/{config['dataset']}"
-    name = f"{config['backbone']}_{config['type']}"
+    split, metric, set = args.split, args.metric, args.set
 
-    predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
 
     if args.save:
-        torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))
-        torch.save(ground_truth, os.path.join(config['logdir'], 'ground_truth.pt'))
+        torch.save(preds, os.path.join(config['logdir'], 'preds.pt'))
+        torch.save(labels, os.path.join(config['logdir'], 'labels.pt'))
         torch.save(oods, os.path.join(config['logdir'], 'oods.pt'))
         torch.save(aleatoric, os.path.join(config['logdir'], 'aleatoric.pt'))
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
         torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
 
-    iou = get_iou(predictions, ground_truth, exclude=oods)
-    ece = ece(predictions, ground_truth, exclude=oods)
-    brier = brier_score(predictions, ground_truth, exclude=oods)
+    iou = get_iou(preds, labels, exclude=oods)
+    brier = brier_score(preds, labels, exclude=oods)
 
-    print(f"IOU: {iou}")
-    print(f"Brier: {brier:.3f}")
-    print(f"ECE: {ece:.3f}")
+    mis = preds.argmax(dim=1) != labels.argmax(dim=1)
+    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
+    mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
+    ece_graph, ece = plot_ece(preds, labels, exclude=oods)
 
-    if config['ood']:
-        uncertainty_scores = epistemic.squeeze(1)
-        uncertainty_labels = oods
+    print(ece_score(preds, labels, exclude=oods))
+    print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")
+    print(f"Mis AUROC={mis_auroc:.5f}, AUPR={mis_aupr:.5f}")
+    print(f"OOD AUROC={ood_auroc:.5f}, AUPR={ood_aupr:.5f}")
 
-        print("EVAL OOD")
-    else:
-        uncertainty_scores = aleatoric.squeeze(1)
-        uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
+    mis_graph.savefig(os.path.join(config['logdir'], "roc_pr_mis.png"))
+    ood_graph.savefig(os.path.join(config['logdir'], "roc_pr_ood.png"))
+    mis_graph.savefig(os.path.join(config['logdir'], "roc_pr_mis.pdf"), format="pdf")
+    ood_graph.savefig(os.path.join(config['logdir'], "roc_pr_ood.pdf"), format="pdf")
 
-    if metric == 'patch':
-        pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores, uncertainty_labels)
+    ece_graph.savefig(os.path.join(config['logdir'], "ece_calib.png"))
 
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
-
-        ax1.plot(thresholds, agc, 'g.-', label=f"AU-p(accurate|certain): {au_agc:.3f}")
-        ax1.set_xlabel('Uncertainty Threshold')
-        ax1.set_ylabel('p(accurate|certain)')
-        ax1.legend(frameon=True)
-        ax1.set_ylim(-0.05, 1.05)
-
-        ax2.plot(thresholds, ugi, 'r.-', label=f"AU-p(uncertain|inaccurate): {au_ugi:.3f}")
-        ax2.set_xlabel('Uncertainty Threshold')
-        ax2.set_ylabel('p(uncertain|inaccurate)')
-        ax2.legend(frameon=True)
-        ax2.set_ylim(-0.05, 1.05)
-
-        ax3.plot(thresholds, pavpu, 'b.-', label=f"AU-PAvPU: {au_pavpu:.3f}")
-        ax3.set_xlabel('Uncertainty Threshold')
-        ax3.set_ylabel('PAVPU')
-        ax3.legend(frameon=True)
-        ax3.set_ylim(-0.05, 1.05)
-
-        fig.suptitle(f"{'OOD' if config['ood'] else 'Misclassification'} - {name}")
-
-        save_path = os.path.join(config['logdir'], f"patch_{'o' if config['ood'] else 'm'}_{name}")
-
-        print(
-            f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
-    elif metric == "rocpr":
-        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
-
-        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-
-        plot_roc(axs[0], fpr, tpr, auroc)
-        plot_pr(axs[1], rec, pr, aupr, no_skill)
-
-        fig.suptitle(f"{'OOD' if config['ood'] else 'Misclassification'} - {name}")
-
-        save_path = os.path.join(config['logdir'], f"rocpr_{'o' if config['ood'] else 'm'}_{name}")
-
-        print(f"UNCERTAINTY IOU: {unc_iou(uncertainty_scores, uncertainty_labels, thresh=.5)}")
-        print(f"AUROC: {auroc:.3f} AP: {aupr:.3f}")
-    elif metric == "grid":
-        fig, axs = plt.subplots(3, 3, figsize=(18, 18))
-
-        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
-
-        plot_roc(axs[0, 0], fpr, tpr, auroc)
-        plot_pr(axs[0, 1], rec, pr, aupr)
-        axs[1, 0].set_title("OOD AUROC")
-        axs[1, 1].set_title("OOD AUPR")
-
-        axs[0, 2].hist(epistemic[~oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="ID", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
-        axs[0, 2].hist(epistemic[oods.unsqueeze(1).bool()].ravel().cpu().numpy(), label="OOD", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled')
-        axs[0, 2].legend()
-        axs[0, 2].set_title("Epistemic Unc. Dist.")
-
-        uncertainty_scores = aleatoric.squeeze(1)
-        uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
-        fpr, tpr, rec, pr, auroc, ap, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
-
-        plot_roc(axs[1, 0], fpr, tpr, auroc)
-        plot_pr(axs[1, 1], rec, pr, aupr)
-        axs[1, 0].set_title("Misc. AUROC")
-        axs[1, 1].set_title("Misc. AUPR")
-
-
-        mis = (torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()).unsqueeze(1)
-        axs[1, 2].hist(aleatoric[mis].ravel().cpu().numpy(), label="Misclassified", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled',)
-        axs[1, 2].hist(aleatoric[~mis].ravel().cpu().numpy(), label="Correctly Classified", range=(0, 1), alpha=.7, bins=25, density=True, histtype='stepfilled',)
-        axs[1, 2].legend()
-        axs[1, 2].set_title("Aleatoric Unc. Dist.")
-
-        if config['binary']:
-            classes = ["Vehicle", "Backg."]
-            axs[2, 0].bar(classes, iou, color=['blue', 'red'])
-        else:
-            classes = ["Vehicle", "Road", "Lane", "Backg."]
-            axs[2, 0].bar(classes, iou, color=['blue', 'green', 'red', 'purple'])
-
-        axs[2, 0].set_title("Class IOUs")
-        add_labels(classes, iou, axs[2, 0])
-
-        plot_acc_calibration(axs[2, 1], ~oods.unsqueeze(1), predictions, ground_truth)
-
-        axs[2, 2].axis("off")
-
-        save_path = os.path.join(config['logdir'], f"grid_{name}")
-    else:
-        raise ValueError("Please pick a valid metric.")
-
-    fig.savefig(f"{save_path}.png", bbox_inches='tight')
-    fig.savefig(f"{save_path}.pdf", bbox_inches='tight', format='pdf')
-
-    print(f"Graph saved to {save_path}.png/pdf")
+    print(f"Graphs saved to {config['logdir']}")
