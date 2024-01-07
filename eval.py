@@ -129,7 +129,6 @@ if __name__ == "__main__":
     mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
     ece_graph, ece = plot_ece(preds, labels, exclude=oods)
 
-    print(ece_score(preds, labels, exclude=oods))
     print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")
     print(f"Mis AUROC={mis_auroc:.5f}, AUPR={mis_aupr:.5f}")
     print(f"OOD AUROC={ood_auroc:.5f}, AUPR={ood_aupr:.5f}")

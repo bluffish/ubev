@@ -1,4 +1,3 @@
-
 from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
@@ -28,7 +27,7 @@ class Evidential(Model):
         if mode == 'aleatoric':
             soft = Evidential.activate(alpha)
             max_soft, hard = soft.max(dim=1)
-            return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
+            return 1 - max_soft.unsqueeze(1)
         elif mode == 'dissonance':
             return dissonance(alpha)
 
@@ -47,10 +46,6 @@ class Evidential(Model):
             A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
         else:
             raise NotImplementedError()
-
-        if self.scale == 'vac':
-            scf = 1 + (self.epistemic(alpha).detach() * self.k)
-            A *= scf
 
         if self.beta_lambda > 0:
             A += entropy_reg(alpha, self.beta_lambda)

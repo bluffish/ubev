@@ -69,7 +69,8 @@ def u_focal_loss(alpha, y, weights=None, n=2):
     a0 = S
     aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
 
-    B = y * torch.exp((torch.lgamma(a0 - aj + n) + torch.lgamma(a0)) - (torch.lgamma(a0 + n) + torch.lgamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
+    B = y * torch.exp((torch.lgamma(a0 - aj + n) + torch.lgamma(a0)) -
+                      (torch.lgamma(a0 + n) + torch.lgamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
 
     if weights is not None:
         B *= weights.view(1, -1, 1, 1)
@@ -79,7 +80,7 @@ def u_focal_loss(alpha, y, weights=None, n=2):
     return A
 
 
-def entropy_reg(alpha, beta_reg=.0005):
+def entropy_reg(alpha, beta_reg=.001):
     alpha = alpha.permute(0, 2, 3, 1)
 
     reg = D.Dirichlet(alpha).entropy().unsqueeze(1)
@@ -88,7 +89,7 @@ def entropy_reg(alpha, beta_reg=.0005):
 
 
 def ood_reg(alpha, ood):
-    if ood.sum() == 0:
+    if ood.long().sum() == 0:
         return 0
 
     alpha = alpha.permute(0, 2, 3, 1)
@@ -99,20 +100,6 @@ def ood_reg(alpha, ood):
     reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
 
     return reg[ood.bool()].mean()
-
-
-def ood_reg_map(alpha, ood):
-    if ood.sum() == 0:
-        return 0
-
-    alpha = alpha.permute(0, 2, 3, 1)
-
-    alpha_d = D.Dirichlet(alpha)
-    target_d = D.Dirichlet(torch.ones_like(alpha))
-
-    reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
-
-    return reg * ood
 
 
 def gamma(x):

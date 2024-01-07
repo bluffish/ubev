@@ -12,7 +12,7 @@ class Postnet(Model):
     def __init__(self, *args, **kwargs):
         super(Postnet, self).__init__(*args, **kwargs)
 
-        self.beta_lambda = 0.000
+        self.beta_lambda = 0.001
         self.ood_lambda = 0.1
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
@@ -36,7 +36,7 @@ class Postnet(Model):
         if mode == 'aleatoric':
             soft = Postnet.activate(alpha)
             max_soft, hard = soft.max(dim=1)
-            return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
+            return 1 - max_soft.unsqueeze(1)
         elif mode == 'dissonance':
             return dissonance(alpha)
 

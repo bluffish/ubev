@@ -38,7 +38,7 @@ def plot_roc_pr(y_score, y_true, title=None, exclude=None):
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
     plot_roc(axs[0], fpr, tpr, auroc)
-    plot_pr(axs[1], rec, pr, auroc, no_skill)
+    plot_pr(axs[1], rec, pr, aupr, no_skill)
 
     if title is not None:
         fig.suptitle(title)

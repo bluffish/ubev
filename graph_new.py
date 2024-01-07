@@ -33,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--logdir', default="./outputs", required=False)
     parser.add_argument('-g', '--gpus', nargs='+', required=False)
     parser.add_argument('-s', '--set', default='ood', required=False)
+    parser.add_argument('--split', default='mini', required=False)
     parser.add_argument('-t', '--title', required=False)
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
             if args.gpus is not None:
                 config['gpus'] = [int(i) for i in args.gpus]
 
-        split = "mini"
+        split = args.split
         dataroot = f"../data/{config['dataset']}"
 
         preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)

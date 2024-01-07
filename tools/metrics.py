@@ -19,8 +19,9 @@ def bin_predictions(y_score, y_true, n_bins=10):
 
     corrects = max_ind == y_true.argmax(dim=1)
 
+
     for b in range(n_bins):
-        in_bin = (max_prob <= upper_bin_boundary[b]) & (max_prob > lower_bin_boundary[b])
+        in_bin = (max_prob < upper_bin_boundary[b]) & (max_prob >= lower_bin_boundary[b])
         bin_cardinality = in_bin.sum()
         bin_cardinalities[b] = bin_cardinality
 

@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, pos_class, ood=False, pseudo=False, binary=False):
+    def __init__(self, nusc, is_train, pos_class, ood=False, pseudo=False):
         self.ood = ood
         self.pseudo = pseudo
         self.pos_class = pos_class
