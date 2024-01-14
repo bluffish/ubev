@@ -20,8 +20,8 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.pseudo = pseudo
         self.pos_class = pos_class
 
-        self.true_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
-        self.pseudo_ood = ["vehicle.motorcycle"]
+        self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
+        self.true_ood = ["vehicle.motorcycle"]
 
         self.all_ood = self.true_ood + self.pseudo_ood
 

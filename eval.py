@@ -2,6 +2,7 @@ import torch.nn.functional
 from tools.viz import *
 from train import *
 import seaborn as sns
+from cache import cached
 
 sns.set_style('white')
 sns.set_palette('muted')
@@ -23,7 +24,7 @@ np.random.seed(0)
 
 torch.set_printoptions(precision=10)
 
-
+@cached()
 def eval(config, set, split, dataroot):
     classes, n_classes, weights = change_params(config)
 
@@ -70,9 +71,9 @@ def eval(config, set, split, dataroot):
             epistemic.append(model.epistemic(out))
             raw.append(out)
 
-            save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
-            save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
-            save_pred(pred, label, config['logdir'])
+            # save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
+            # save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
+            # save_pred(pred, label, config['logdir'])
 
     return (torch.cat(preds, dim=0),
             torch.cat(labels, dim=0),

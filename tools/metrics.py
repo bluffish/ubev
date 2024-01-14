@@ -96,6 +96,24 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
 
     return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
 
+def patch_metrics_q(uncertainty_scores, uncertainty_labels):
+    percs = torch.linspace(0, 1, 11)
+
+    pavpus = []
+    agcs = []
+    ugis = []
+
+    thresholds = torch.quantile(uncertainty_scores, percs)
+
+    for thresh in thresholds:
+        pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
+        perc = torch.sum(uncertainty_scores<thresh)/uncertainty_scores.nelement()
+
+        pavpus.append(pavpu)
+        agcs.append(agc)
+        ugis.append(ugi)
+
+    return pavpus, agcs, ugis, thresholds, percs, auc(percs, pavpus), auc(percs, agcs), auc(percs, ugis)
 
 def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0.5, uncertainty_threshold=0.2,
                     window_size=1):
