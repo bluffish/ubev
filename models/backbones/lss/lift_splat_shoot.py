@@ -199,7 +199,8 @@ class BevEncodePostnet(nn.Module):
 
         self.last = nn.Conv2d(outC, outC, kernel_size=3, padding=1)
 
-        self.p_c = torch.tensor([.015, .2, .05, .735])
+        # self.p_c = torch.tensor([.015, .2, .05, .735])
+        self.p_c = torch.tensor([.02, .98])
 
     def forward(self, x):
         x = self.conv1(x)

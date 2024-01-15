@@ -29,6 +29,8 @@ def train():
         train_set = "train"
         val_set = "val"
 
+    print(config['learning_rate'])
+
     train_loader = datasets[config['dataset']](
         train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],

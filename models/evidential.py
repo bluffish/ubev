@@ -9,18 +9,11 @@ class Evidential(Model):
         super(Evidential, self).__init__(*args, **kwargs)
 
         self.beta_lambda = 0.001
-        self.ood_lambda = 0.1
+        self.ood_lambda = 0.01
         self.scale = 'none'
-        self.k = 4
+        self.k = 64
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
-
-        if self.loss_type == 'ce' and self.beta_lambda == 0:
-            print("WARNING: USING UCE AND NO ENTROPY REG. WILL SET LAMBDA TO 0.001")
-            self.beta_lambda = .001
-        elif self.loss_type == 'focal' and self.beta_lambda > 0:
-            print("WARNING: USING UFOCAL + ENTROPY REG. WILL SET LAMBDA TO 0")
-            self.beta_lambda = .0
 
     @staticmethod
     def aleatoric(alpha, mode='aleatoric'):
@@ -41,14 +34,11 @@ class Evidential(Model):
 
     def loss(self, alpha, y, reduction='mean'):
         if self.loss_type == 'ce':
-            A = uce_loss(alpha, y, weights=self.weights)
+            A = uce_loss(alpha, y, weights=self.weights) + entropy_reg(alpha, beta_reg=self.beta_lambda)
         elif self.loss_type == 'focal':
             A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
         else:
             raise NotImplementedError()
-
-        if self.beta_lambda > 0:
-            A += entropy_reg(alpha, self.beta_lambda)
 
         if reduction == 'mean':
             return A.mean()
@@ -56,15 +46,7 @@ class Evidential(Model):
             return A
 
     def loss_ood(self, alpha, y, ood):
-        if self.loss_type == 'ce':
-            A = uce_loss(alpha, y, weights=self.weights)
-        elif self.loss_type == 'focal':
-            A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
-        else:
-            raise NotImplementedError()
-
-        if self.beta_lambda > 0:
-            A += entropy_reg(alpha, beta_reg=self.beta_lambda)
+        A = self.loss(alpha, y, reduction='none')
 
         if self.scale == 'vac':
             scf = 1 + (self.epistemic(alpha).detach() * self.k)

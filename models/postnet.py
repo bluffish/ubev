@@ -13,7 +13,9 @@ class Postnet(Model):
         super(Postnet, self).__init__(*args, **kwargs)
 
         self.beta_lambda = 0.001
-        self.ood_lambda = 0.1
+        self.ood_lambda = 0.01
+        self.scale = 'none'
+        self.k = 64
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
 
@@ -48,33 +50,21 @@ class Postnet(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y):
+    def loss(self, alpha, y, reduction='mean'):
         if self.loss_type == 'ce':
-            A = uce_loss(alpha, y, weights=self.weights)
+            A = uce_loss(alpha, y, weights=self.weights) + entropy_reg(alpha, beta_reg=self.beta_lambda)
         elif self.loss_type == 'focal':
             A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
         else:
             raise NotImplementedError()
 
-        if self.scale == 'vac':
-            scf = 1 + (self.epistemic(alpha).detach() * self.k)
-            A *= scf
-
-        if self.beta_lambda > 0:
-            A += entropy_reg(alpha, self.beta_lambda)
-
-        return A.mean()
+        if reduction == 'mean':
+            return A.mean()
+        else:
+            return A
 
     def loss_ood(self, alpha, y, ood):
-        if self.loss_type == 'ce':
-            A = uce_loss(alpha, y, weights=self.weights)
-        elif self.loss_type == 'focal':
-            A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
-        else:
-            raise NotImplementedError()
-
-        if self.beta_lambda > 0:
-            A += entropy_reg(alpha, beta_reg=self.beta_lambda)
+        A = self.loss(alpha, y, reduction='none')
 
         if self.scale == 'vac':
             scf = 1 + (self.epistemic(alpha).detach() * self.k)
@@ -82,7 +72,7 @@ class Postnet(Model):
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
 
-        A = A[(1 - ood).unsqueeze(1).bool()].mean()
+        A = A[~ood.bool()].mean()
 
         A += oreg
 

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from tools.uncertainty import *
 import torch.nn as nn
 
+
 def ce_loss(logits, target, weights=None):
     return F.cross_entropy(logits, target, weight=weights, reduction='none')
 

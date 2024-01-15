@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 
 import torchvision
 from torch.utils.data import Subset
@@ -119,7 +120,7 @@ class CarlaDataset(torch.utils.data.Dataset):
             empty[road == 1] = 0
             label = np.stack((vehicles, road, lane, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood[None])
+        return torch.tensor(label.copy()).float(), torch.tensor(ood[None])
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -144,6 +145,10 @@ class CarlaDataset(torch.utils.data.Dataset):
 
 def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False):
     data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
+    random.seed(0)
+    torch.cuda.manual_seed(0)
+    torch.manual_seed(0)
+    np.random.seed(0)
 
     if version == 'mini':
         g = torch.Generator()

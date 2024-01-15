@@ -61,6 +61,7 @@ def eval(config, set, split, dataroot):
     with torch.no_grad():
         for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation"):
             out = model(images, intrinsics, extrinsics).detach().cpu()
+            print(out.shape)
             pred = model.activate(out)
 
             preds.append(pred)
@@ -125,8 +126,8 @@ if __name__ == "__main__":
     brier = brier_score(preds, labels, exclude=oods)
 
     mis = preds.argmax(dim=1) != labels.argmax(dim=1)
-    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
     mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
+    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
     ece_graph, ece = plot_ece(preds, labels, exclude=oods)
 
     print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")

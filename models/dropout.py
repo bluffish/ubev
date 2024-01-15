@@ -19,7 +19,7 @@ class Dropout(Model):
 
     @staticmethod
     def activate(logits):
-        return torch.softmax(torch.mean(logits, dim=0), dim=1)
+        return torch.mean(torch.softmax(logits, dim=2), dim=0)
 
     def loss(self, logits, target):
         if self.loss_type == 'ce':
@@ -32,6 +32,7 @@ class Dropout(Model):
             raise NotImplementedError()
 
     def forward(self, images, intrinsics, extrinsics):
+        print(self.training)
         if self.training:
             return self.backbone(images, intrinsics, extrinsics)
         else:

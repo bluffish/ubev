@@ -1,0 +1,25 @@
+
+ufocal=.5:
+  config: 'configs/eval_carla_cvt_evidential.yaml'
+  path: './outputs_bin/carla/vehicle/cvt_ufocal_gamma=.5/19.pt'
+  label: "CVT UFocal Gamma=.5"
+
+ufocal=.1:
+  config: 'configs/eval_carla_cvt_evidential.yaml'
+  path: './outputs_bin/carla/vehicle/cvt_ufocal_gamma=.5/19.pt'
+  label: "CVT UFocal Gamma=.1"
+
+ufocal=.05:
+  config: 'configs/eval_carla_cvt_evidential.yaml'
+  path: './outputs_bin/carla/vehicle/cvt_ufocal_gamma=.05/19.pt'
+  label: "CVT UFocal Gamma=.05"
+
+ufocal=0:
+  config: 'configs/eval_carla_cvt_evidential.yaml'
+  path: './outputs_bin/carla/vehicle/cvt_ufocal_gamma=0/19.pt'
+  label: "CVT UFocal Gamma=0"
+
+uce_beta=.001:
+  config: 'configs/eval_carla_cvt_evidential.yaml'
+  path: './outputs_bin/carla/vehicle/cvt_uce_beta=.001/19.pt'
+  label: "CVT UCE Entropy Reg. Beta=.001"

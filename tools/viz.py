@@ -5,9 +5,52 @@ import numpy as np
 from tools.metrics import *
 
 
-def plot_ece(preds, labels, title=None, exclude=None, n_bins=20):
+def plot_patch(y_score, y_true, title=None, exclude=None, axs=None, quantile=True):
+    pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(y_score, y_true, quantile=quantile)
+
+    if axs is None:
+        gen_new = True
+        fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    else:
+        gen_new = False
+
+    axs[0].plot(thresholds, agc, 'g.-', label=f"AU-p(accurate|certain): {au_agc:.3f}")
+    axs[0].set_xlabel('Uncertainty Threshold')
+    axs[0].set_ylabel('p(accurate|certain)')
+    axs[0].legend(frameon=True)
+    axs[0].set_ylim(-0.05, 1.05)
+
+    axs[1].plot(thresholds, ugi, 'r.-', label=f"AU-p(uncertain|inaccurate): {au_ugi:.3f}")
+    axs[1].set_xlabel('Uncertainty Threshold')
+    axs[1].set_ylabel('p(uncertain|inaccurate)')
+    axs[1].legend(frameon=True)
+    axs[1].set_ylim(-0.05, 1.05)
+
+    axs[2].plot(thresholds, pavpu, 'b.-', label=f"AU-PAvPU: {au_pavpu:.3f}")
+    axs[2].set_xlabel('Uncertainty Threshold')
+    axs[2].set_ylabel('PAVPU')
+    axs[2].legend(frameon=True)
+    axs[2].set_ylim(-0.05, 1.05)
+
+    if gen_new:
+        if title is not None:
+            fig.suptitle(title)
+        fig.tight_layout()
+
+        return fig
+    else:
+        pass
+
+
+
+def plot_ece(preds, labels, title=None, exclude=None, n_bins=20, ax=None):
     conf, acc, ece = expected_calibration_error(preds, labels, exclude=exclude, n_bins=n_bins)
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+
+    if ax is None:
+        gen_new = True
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    else:
+        gen_new = False
 
     bin_boundaries = torch.linspace(0, 1, n_bins + 1)
     lower_bin_boundary = bin_boundaries[:-1]
@@ -26,25 +69,36 @@ def plot_ece(preds, labels, title=None, exclude=None, n_bins=20):
     ax.set_ylim(0.0, 1.0)
     ax.legend()
 
-    if title is not None:
-        fig.suptitle(title)
-    fig.tight_layout()
+    if gen_new:
+        if title is not None:
+            fig.suptitle(title)
+        fig.tight_layout()
 
-    return fig, ece
+        return fig, ece
+    else:
+        return ece
 
 
-def plot_roc_pr(y_score, y_true, title=None, exclude=None):
+def plot_roc_pr(y_score, y_true, title=None, exclude=None, axs=None):
     fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(y_score, y_true, exclude=exclude)
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    if axs is None:
+        gen_new = True
+        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    else:
+        gen_new = False
 
     plot_roc(axs[0], fpr, tpr, auroc)
     plot_pr(axs[1], rec, pr, aupr, no_skill)
 
-    if title is not None:
-        fig.suptitle(title)
-    fig.tight_layout()
+    if gen_new:
+        if title is not None:
+            fig.suptitle(title)
+        fig.tight_layout()
 
-    return fig, auroc, aupr
+        return fig, auroc, aupr
+    else:
+        return auroc, aupr
 
 
 def plot_roc(ax, fpr, tpr, auroc):
