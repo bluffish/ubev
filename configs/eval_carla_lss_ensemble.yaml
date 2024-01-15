@@ -1,0 +1,8 @@
+type: 'evidential'
+backbone: 'lss'
+dataset: 'carla'
+logdir: 'outputs/carla/lss_evidential'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/lss_evidential/9.pt'
