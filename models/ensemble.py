@@ -21,9 +21,8 @@ class ModelPackage(nn.Module):
 class Ensemble(Model):
     def __init__(self, *args, **kwargs):
         super(Ensemble, self).__init__(*args, **kwargs)
-        self.n_models = 3
 
-    def create_backbone(self, backbone, n_models=5):
+    def create_backbone(self, backbone, n_models=3):
         print("Ensemble activation")
 
         self.backbone = nn.DataParallel(
@@ -39,13 +38,17 @@ class Ensemble(Model):
 
     @staticmethod
     def aleatoric(logits):
-        return entropy(torch.mean(logits, dim=0))
+        return torch.mean(entropy(logits, dim=2), dim=0)
 
     @staticmethod
     def epistemic(logits):
         pred, _ = logits.max(dim=2)
         var = torch.var(pred, dim=0)
-        return (1 - 1 / var)[:, None]
+        return (1 - 1 / var).unsqueeze(1)
+
+    @staticmethod
+    def activate(logits):
+        return torch.mean(torch.softmax(logits, dim=2), dim=0)
 
     def loss(self, logits, target):
         losses = torch.zeros(logits.shape[0])
@@ -61,6 +64,7 @@ class Ensemble(Model):
         return losses.mean()
 
     def forward(self, images, intrinsics, extrinsics):
-        x = self.backbone(images[None], intrinsics[None], extrinsics[None])[0]
+        x = self.backbone(images[None], intrinsics[None], extrinsics[None])
+
         return x
 

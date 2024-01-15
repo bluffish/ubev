@@ -43,7 +43,6 @@ def eval(config, set, split, dataroot):
 
     model.load(torch.load(config['pretrained']))
     model.eval()
-    model.training = False
 
     print("--------------------------------------------------")
     print(f"Running eval on {split}")
@@ -61,7 +60,6 @@ def eval(config, set, split, dataroot):
     with torch.no_grad():
         for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation"):
             out = model(images, intrinsics, extrinsics).detach().cpu()
-            print(out.shape)
             pred = model.activate(out)
 
             preds.append(pred)

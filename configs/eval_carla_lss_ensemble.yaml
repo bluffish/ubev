@@ -1,8 +1,8 @@
-type: 'evidential'
+type: 'ensemble'
 backbone: 'lss'
 dataset: 'carla'
-logdir: 'outputs/carla/lss_evidential'
+logdir: 'outputs/carla/lss_ensemble'
 gpus: [7]
 batch_size: 8
 num_workers: 32
-pretrained: 'outputs/carla/lss_evidential/9.pt'
+pretrained: 'outputs/carla/lss_ensemble/19.pt'
