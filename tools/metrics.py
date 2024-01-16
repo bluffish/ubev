@@ -9,9 +9,9 @@ import torchmetrics
 def bin_predictions(y_score, y_true, n_bins=10):
     max_prob, max_ind = y_score.max(dim=1)
 
-    acc_binned = torch.zeros((n_bins, ))
-    conf_binned = torch.zeros((n_bins, ))
-    bin_cardinalities = torch.zeros((n_bins, ))
+    acc_binned = torch.zeros((n_bins,))
+    conf_binned = torch.zeros((n_bins,))
+    bin_cardinalities = torch.zeros((n_bins,))
 
     bin_boundaries = torch.linspace(0, 1, n_bins + 1)
     lower_bin_boundary = bin_boundaries[:-1]
@@ -42,7 +42,7 @@ def expected_calibration_error(pred, label, exclude=None, n_bins=10):
 
     acc, conf, bin_cardinalities = bin_predictions(y_score, y_true, n_bins=n_bins)
     ece = torch.abs(acc - conf) * bin_cardinalities
-    print(((acc-conf)*bin_cardinalities).sum())
+    print(((acc - conf) * bin_cardinalities).sum())
     ece = ece.sum() / (y_true.shape[0])
 
     return conf, acc, ece
@@ -91,7 +91,7 @@ def patch_metrics(uncertainty_scores, uncertainty_labels, quantile=False):
         if quantile:
             perc = torch.quantile(uncertainty_scores, thresh).item()
             pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels,
-                                                              uncertainty_threshold=perc)
+                                              uncertainty_threshold=perc)
         else:
             pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
 

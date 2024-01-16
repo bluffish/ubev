@@ -20,9 +20,6 @@ class Dropout(Model):
     def activate(logits):
         return torch.mean(torch.softmax(logits, dim=2), dim=0)
 
-    def loss(self, logits, target):
-        raise NotImplementedError()
-
     def forward(self, images, intrinsics, extrinsics):
         self.train()
         out = [self.backbone(images, intrinsics, extrinsics) for _ in range(10)]

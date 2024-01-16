@@ -41,7 +41,13 @@ def eval(config, set, split, dataroot):
         n_classes=n_classes
     )
 
-    model.load(torch.load(config['pretrained']))
+    print(config['ensemble'])
+    if config['type'] == 'ensemble':
+        state_dicts = [torch.load(path) for path in config['ensemble']]
+        model.load(state_dicts)
+    else:
+        model.load(torch.load(config['pretrained']))
+
     model.eval()
 
     print("--------------------------------------------------")
@@ -91,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument( '--split', default="mini", required=False, type=str)
     parser.add_argument('-s', '--set', default="ood", required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)

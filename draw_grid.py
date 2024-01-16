@@ -19,7 +19,7 @@ def sorted_alphanumeric(data):
 if __name__ == "__main__":
     m = Evidential([0], backbone="lss")
 
-    with open('./configs/eval_carla_lss_evidential.yaml', 'r') as file:
+    with open('./configs/eval_carla_cvt_evidential.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     config['ood'] = True
@@ -51,6 +51,8 @@ if __name__ == "__main__":
         # "LSS_UCE_OOD-Reg=1_Vac=32": "./outputs_bin/carla/grid_aug/uce_ol=1_k=32",
         # "LSS_UCE_OOD-Reg=1_Vac=64": "./outputs_bin/carla/grid_aug/uce_ol=1_k=64",
         # "LSS_UFocal_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/ufocal_ol=.01_k=64",
+        "CVT_UFocal_gamma=.05_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_ufocal_gamma=.05_ol=.01_k=64",
+        "CVT_UCE_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_uce_ol=.01_k=64",
     }
 
     fig, axs = plt.subplots(6, 4, figsize=(30, 36))
@@ -73,22 +75,22 @@ if __name__ == "__main__":
         torch.manual_seed(0)
         np.random.seed(0)
 
-        # fig, axs = plt.subplots(3, 2, figsize=(3 * 6, 3 * 6))
-        # fig.suptitle(name)
-        # config['pretrained'] = os.path.join(models[name], "19.pt")
-        #
-        # for i, set in enumerate(sets):
-        #     preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, "mini", "../data/carla")
-        #
-        #     plot_roc_pr(epistemic, oods, axs=(axs[i, 0], axs[i, 1]))
-        #     axs[i, 0].set_title(f"{sets[set]} ROC Curve")
-        #     axs[i, 1].set_title(f"{sets[set]} PR Curve")
-        #
-        # fig.tight_layout()
-        # fig.savefig(os.path.join('outputs_bin', f"{name}_ood_metrics.png"))
-        # fig.savefig(os.path.join('outputs_bin', f"{name}_ood_metrics.pdf"), format='pdf')
-        #
-        # plt.close(fig)
+        fig2, axs2 = plt.subplots(3, 2, figsize=(3 * 6, 3 * 6))
+        fig2.suptitle(name)
+        config['pretrained'] = os.path.join(models[name], "19.pt")
+
+        for i, set in enumerate(sets):
+            preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, "mini", "../data/carla")
+
+            plot_roc_pr(epistemic, oods, axs=(axs2[i, 0], axs2[i, 1]))
+            axs2[i, 0].set_title(f"{sets[set]} ROC Curve")
+            axs2[i, 1].set_title(f"{sets[set]} PR Curve")
+
+        fig2.tight_layout()
+        fig2.savefig(os.path.join('outputs_bin', f"{name}_ood_metrics.png"))
+        fig2.savefig(os.path.join('outputs_bin', f"{name}_ood_metrics.pdf"), format='pdf')
+
+        plt.close(fig2)
 
         checkpoints = sorted_alphanumeric(os.listdir(models[name]))
 

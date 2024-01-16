@@ -20,7 +20,7 @@ class Evidential(Model):
         if mode == 'aleatoric':
             soft = Evidential.activate(alpha)
             max_soft, hard = soft.max(dim=1)
-            return 1 - max_soft.unsqueeze(1)
+            return (1 - max_soft).unsqueeze(1)
         elif mode == 'dissonance':
             return dissonance(alpha)
 

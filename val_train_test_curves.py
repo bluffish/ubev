@@ -57,7 +57,7 @@ if __name__ == "__main__":
         for i, set in enumerate(sets):
             preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
 
-            mis = preds.argmax(dim=1) != labels.argmax(dim=1)
+            mis = get_mis(preds, labels)
             plot_roc_pr(aleatoric, mis, exclude=oods, axs=(axs[i*3, 0], axs[i*3, 1]))
             axs[i*3, 0].set_title(f"{set_names[i]} ROC Curve")
             axs[i*3, 1].set_title(f"{set_names[i]} PR Curve")

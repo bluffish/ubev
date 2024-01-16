@@ -42,7 +42,6 @@ def plot_patch(y_score, y_true, title=None, exclude=None, axs=None, quantile=Tru
         pass
 
 
-
 def plot_ece(preds, labels, title=None, exclude=None, n_bins=20, ax=None):
     conf, acc, ece = expected_calibration_error(preds, labels, exclude=exclude, n_bins=n_bins)
 
