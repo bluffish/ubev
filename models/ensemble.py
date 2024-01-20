@@ -47,6 +47,9 @@ class Ensemble(Model):
         if self.opt is not None:
             self.opt.load_state_dict(state_dict[0]['optimizer_state_dict'])
 
+        if self.scaler is not None:
+            self.scaler.load_state_dict(state_dict['scaler_state_dict'])
+
     @staticmethod
     def aleatoric(logits):
         return torch.mean(entropy(logits, dim=2), dim=0)

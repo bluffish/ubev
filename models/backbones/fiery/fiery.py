@@ -7,10 +7,6 @@ from models.backbones.fiery.encoder import Encoder
 from tools.geometry import *
 
 
-def inverse(x):
-    return torch.tensor(np.linalg.inv(x.cpu().numpy())).to(x.device)
-
-
 class VoxelsSumming(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, geometry, ranks):
@@ -49,9 +45,9 @@ class Fiery(nn.Module):
 
         self.d_bound = [2.0, 50.0, 1.0]
 
-        self.bev_resolution = nn.Parameter(bev_resolution, requires_grad=False)
-        self.bev_start_position = nn.Parameter(bev_start_position, requires_grad=False)
-        self.bev_dimension = nn.Parameter(bev_dimension, requires_grad=False)
+        self.bev_resolution = nn.Parameter(torch.tensor(bev_resolution), requires_grad=False)
+        self.bev_start_position = nn.Parameter(torch.tensor(bev_resolution), requires_grad=False)
+        self.bev_dimension = nn.Parameter(torch.tensor(bev_resolution), requires_grad=False)
 
         self.encoder_downsample = 8
         self.encoder_out_channels = 64
@@ -95,7 +91,7 @@ class Fiery(nn.Module):
         points = self.frustum.unsqueeze(0).unsqueeze(0).unsqueeze(-1)
 
         points = torch.cat((points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3], points[:, :, :, :, :, 2:3]), 5)
-        combined_transformation = rotation.matmul(inverse(intrinsics))
+        combined_transformation = rotation.matmul(torch.inverse(intrinsics))
         points = combined_transformation.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
         points += translation.view(B, N, 1, 1, 1, 3)
 

@@ -13,7 +13,7 @@ backbones = {
 
 
 class Model(nn.Module):
-    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, loss_type='ce', weights=None):
+    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, scaler=None, loss_type='ce', weights=None):
         super(Model, self).__init__()
 
         self.device = devices[0]
@@ -29,11 +29,11 @@ class Model(nn.Module):
         self.loss_type = loss_type
         self.n_classes = n_classes
         self.opt = opt
+        self.scaler = scaler
         self.gamma = .1
         self.tsne = False
 
         self.create_backbone(backbone)
-        print(f"Using weights: {self.weights}")
 
     def create_backbone(self, backbone):
         self.backbone = nn.DataParallel(
@@ -62,6 +62,7 @@ class Model(nn.Module):
         return {
             'model_state_dict': super().state_dict(),
             'optimizer_state_dict': self.opt.state_dict() if self.opt is not None else None,
+            'scaler_state_dict': self.scaler.state_dict() if self.scaler is not None else None,
             'epoch': epoch
         }
 
@@ -71,21 +72,34 @@ class Model(nn.Module):
         if self.opt is not None:
             self.opt.load_state_dict(state_dict['optimizer_state_dict'])
 
+        if self.scaler is not None:
+            self.scaler.load_state_dict(state_dict['scaler_state_dict'])
+
     def save(self, path):
         torch.save(self.state_dict(), path)
 
     def train_step(self, images, intrinsics, extrinsics, labels):
         self.opt.zero_grad(set_to_none=True)
 
-        outs = self(images, intrinsics, extrinsics)
+        if self.scaler is not None:
+            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+                outs = self(images, intrinsics, extrinsics)
+                loss = self.loss(outs, labels.to(self.device))
+
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.opt)
+
+            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+            self.scaler.step(self.opt)
+            self.scaler.update()
+        else:
+            outs = self(images, intrinsics, extrinsics)
+            loss = self.loss(outs, labels.to(self.device))
+            loss.backward()
+            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+            self.opt.step()
+
         preds = self.activate(outs)
-
-        loss = self.loss(outs, labels.to(self.device))
-        loss.backward()
-
-        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-        self.opt.step()
-
         return outs, preds, loss
 
     def forward(self, images, intrinsics, extrinsics):

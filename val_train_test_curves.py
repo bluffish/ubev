@@ -31,7 +31,7 @@ if __name__ == "__main__":
     split, metric = args.split, args.metric
 
     if args.ood:
-        sets = ["ood", "val_aug", "train_aug"]
+        sets = ["ood", "val_aug_stable", "train_aug_stable"]
         set_names = ["OOD", "Val Aug", "Train Aug"]
 
         fig, axs = plt.subplots(3, 2, figsize=(3*6, 3*6))

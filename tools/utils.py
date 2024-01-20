@@ -62,6 +62,7 @@ def change_params(config):
     return classes, n_classes, weights
 
 
+@torch.no_grad()
 def run_loader(model, loader):
     predictions = []
     ground_truth = []

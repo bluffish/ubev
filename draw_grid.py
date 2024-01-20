@@ -19,7 +19,7 @@ def sorted_alphanumeric(data):
 if __name__ == "__main__":
     m = Evidential([0], backbone="lss")
 
-    with open('./configs/eval_carla_cvt_evidential.yaml', 'r') as file:
+    with open('./configs/eval_carla_lss_evidential.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     config['ood'] = True
@@ -30,9 +30,9 @@ if __name__ == "__main__":
             "Total Loss", "OOD Reg.", "UCE/UFocal Loss"]
 
     sets = {
-        "val_aug": "Validation set w/ Pseudo OOD",
+        "val_aug_stable": "Validation set w/ Pseudo OOD",
         "ood": "Test set w/ True OOD",
-        "train_aug": "Training set w/ Pseudo OOD",
+        "train_aug_stable": "Training set w/ Pseudo OOD",
     }
 
     epochs = np.linspace(0, 19, 20)
@@ -51,8 +51,9 @@ if __name__ == "__main__":
         # "LSS_UCE_OOD-Reg=1_Vac=32": "./outputs_bin/carla/grid_aug/uce_ol=1_k=32",
         # "LSS_UCE_OOD-Reg=1_Vac=64": "./outputs_bin/carla/grid_aug/uce_ol=1_k=64",
         # "LSS_UFocal_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/ufocal_ol=.01_k=64",
-        "CVT_UFocal_gamma=.05_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_ufocal_gamma=.05_ol=.01_k=64",
-        "CVT_UCE_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_uce_ol=.01_k=64",
+        # "CVT_UFocal_gamma=.05_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_ufocal_gamma=.05_ol=.01_k=64",
+        # "CVT_UCE_OOD-Reg=.01_Vac=64": "./outputs_bin/carla/grid_aug/cvt_uce_ol=.01_k=64",
+        "StableDiffAug": "./outputs_bin/carla_stablediff_test"
     }
 
     fig, axs = plt.subplots(6, 4, figsize=(30, 36))

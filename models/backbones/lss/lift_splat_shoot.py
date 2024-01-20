@@ -8,10 +8,6 @@ from torchvision.models.resnet import resnet18
 from models.gpn.density import Density, Evidence
 
 
-def inverse(x):
-    return torch.tensor(np.linalg.inv(x.cpu().numpy())).to(x.device)
-
-
 def gen_dx_bx(x_bound, y_bound, z_bound):
     dx = torch.Tensor([row[2] for row in [x_bound, y_bound, z_bound]])
     bx = torch.Tensor([row[0] + row[2] / 2.0 for row in [x_bound, y_bound, z_bound]])
@@ -45,6 +41,7 @@ class QuickCumsum(torch.autograd.Function):
     @staticmethod
     def backward(ctx, gradx, gradgeom):
         kept, = ctx.saved_tensors
+
         back = torch.cumsum(kept, 0)
         back[kept] -= 1
 
@@ -283,7 +280,7 @@ class LiftSplatShoot(nn.Module):
         points = self.frustum.unsqueeze(0).unsqueeze(0).unsqueeze(-1)
 
         points = torch.cat((points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3], points[:, :, :, :, :, 2:3]), 5)
-        combined_transformation = rotation.matmul(inverse(intrinsics))
+        combined_transformation = rotation.matmul(torch.inverse(intrinsics))
         points = combined_transformation.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
         points += translation.view(B, N, 1, 1, 1, 3)
 

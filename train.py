@@ -1,5 +1,6 @@
 import argparse
 from time import time
+import cProfile
 
 from tensorboardX import SummaryWriter
 from tools.metrics import *
@@ -11,9 +12,10 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 torch.set_float32_matmul_precision('high')
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
-torch.manual_seed(0)
-np.random.seed(0)
+print(torch.__version__)
 
 
 def train():
@@ -23,26 +25,30 @@ def train():
         config['learning_rate'] *= 4
 
     if config['ood']:
-        train_set = "train_aug"
-        val_set = "val_aug"
+        if config['stable']:
+            train_set = "train_aug_stable"
+            val_set = "val_aug_stable"
+        else:
+            train_set = "train_aug"
+            val_set = "val_aug"
     else:
         train_set = "train"
         val_set = "val"
-
-    print(config['learning_rate'])
 
     train_loader = datasets[config['dataset']](
         train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        is_train=True
+        is_train=True,
+        seed=config['seed']
     )
 
     val_loader = datasets[config['dataset']](
         val_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        is_train=False
+        is_train=False,
+        seed=config['seed']
     )
 
     model = models[config['type']](
@@ -59,7 +65,11 @@ def train():
         weight_decay=config['weight_decay']
     )
 
-    print("Using scheduler")
+    if config['mixed']:
+        model.scaler = torch.cuda.amp.GradScaler(enabled=True)
+        print("Using mixed precision")
+    else:
+        print("Using full precision")
 
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
@@ -86,15 +96,14 @@ def train():
 
     if 'k' in config:
         model.k = config['k']
-        print(f"Scaling with {model.scale}")
 
     if 'beta' in config:
         model.beta_lambda = config['beta']
         print(f"Beta lambda is {model.beta_lambda}")
 
-    if 'scale' in config:
-        model.scale = config['scale']
-        print(f"Scaling with {model.scale} @ k={model.k}")
+    if config['fast']:
+        model = torch.compile(model, mode="reduce-overhead", fullgraph=True)
+        print("Using torch.compile")
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -110,7 +119,9 @@ def train():
     writer.add_text("config", str(config))
 
     step = 0
-    torch.autograd.set_detect_anomaly(True)
+
+    # enable to catch errors in loss function
+    # torch.autograd.set_detect_anomaly(True)
 
     for epoch in range(config['num_epochs']):
         model.train()
@@ -132,7 +143,7 @@ def train():
                 scheduler.step()
 
             if step % 10 == 0:
-                print(f"[{epoch}] {step}", loss.item())
+                print(f"[{epoch}] {step} {loss.item()} {time()-t_0}")
 
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
@@ -163,6 +174,7 @@ def train():
         print(f"Validation mIOU: {iou}")
 
         ood_loss = None
+
         if config['ood']:
             n_samples = len(raw)
             val_loss = 0
@@ -229,12 +241,15 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
+    parser.add_argument('-f', '--fast', default=False, action='store_true')
+
+    parser.add_argument('--seed', default=0, required=False, type=int)
+    parser.add_argument('--stable', default=False, action='store_true')
 
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
     parser.add_argument('--beta', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
-    parser.add_argument('--scale', required=False, type=str)
     parser.add_argument('--k', required=False, type=float)
 
     args = parser.parse_args()
@@ -242,10 +257,16 @@ if __name__ == "__main__":
     print(f"Using config {args.config}")
     config = get_config(args)
 
+    torch.manual_seed(config['seed'])
+    np.random.seed(config['seed'])
+
+    config['mixed'] = False
+
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
-    else:
-        torch.backends.cudnn.enabled = True
+
+    for gpu in config['gpus']:
+        torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
     dataroot = f"../data/{config['dataset']}"

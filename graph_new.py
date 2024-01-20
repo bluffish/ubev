@@ -84,7 +84,6 @@ if __name__ == "__main__":
         dataroot = f"../data/{config['dataset']}"
 
         preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
-        print(torch.sum(preds*labels, dim=1).mean())
         label = group[name]['label'] if 'label' in group[name] else name
 
         fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(aleatoric, get_mis(preds, labels), exclude=oods)

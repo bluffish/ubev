@@ -17,6 +17,8 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 torch.set_float32_matmul_precision('high')
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -25,6 +27,9 @@ torch.set_printoptions(precision=10)
 
 
 def eval(config, set, split, dataroot):
+    for gpu in config['gpus']:
+        torch.inverse(torch.ones((1, 1), device=gpu))
+
     classes, n_classes, weights = change_params(config)
 
     loader = datasets[config['dataset']](
@@ -41,7 +46,6 @@ def eval(config, set, split, dataroot):
         n_classes=n_classes
     )
 
-    print(config['ensemble'])
     if config['type'] == 'ensemble':
         state_dicts = [torch.load(path) for path in config['ensemble']]
         model.load(state_dicts)
@@ -108,11 +112,6 @@ if __name__ == "__main__":
 
     print(f"Using config {args.config}")
     config = get_config(args)
-
-    if config['backbone'] == 'cvt':
-        torch.backends.cudnn.enabled = False
-    else:
-        torch.backends.cudnn.enabled = True
 
     dataroot = f"../data/{config['dataset']}"
     split, metric, set = args.split, args.metric, args.set

@@ -14,7 +14,6 @@ class Postnet(Model):
 
         self.beta_lambda = 0.001
         self.ood_lambda = 0.01
-        self.scale = 'none'
         self.k = 64
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
@@ -31,14 +30,15 @@ class Postnet(Model):
         if backbone == 'fiery':
             self.backbone.module.decoder = DecoderPostnet(in_channels=self.backbone.module.encoder_out_channels, n_classes=self.backbone.module.n_classes).to(self.device)
         if backbone == 'cvt':
-            self.backbone.module.to_logits = Post(self.backbone.module.decoder.out_channels).to(self.device)
+            print(self.backbone.module.n_classes)
+            self.backbone.module.to_logits = Post(self.backbone.module.decoder.out_channels, n_classes=self.backbone.module.n_classes).to(self.device)
 
     @staticmethod
     def aleatoric(alpha, mode='aleatoric'):
         if mode == 'aleatoric':
             soft = Postnet.activate(alpha)
             max_soft, hard = soft.max(dim=1)
-            return 1 - max_soft.unsqueeze(1)
+            return (1 - max_soft).unsqueeze(1)
         elif mode == 'dissonance':
             return dissonance(alpha)
 
@@ -65,10 +65,7 @@ class Postnet(Model):
 
     def loss_ood(self, alpha, y, ood):
         A = self.loss(alpha, y, reduction='none')
-
-        if self.scale == 'vac':
-            scf = 1 + (self.epistemic(alpha).detach() * self.k)
-            A *= scf
+        A *= 1 + (self.epistemic(alpha).detach() * self.k)
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
 
@@ -81,15 +78,25 @@ class Postnet(Model):
     def train_step_ood(self, images, intrinsics, extrinsics, labels, ood):
         self.opt.zero_grad(set_to_none=True)
 
-        outs = self(images, intrinsics, extrinsics)
+        if self.scaler is not None:
+            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+                outs = self(images, intrinsics, extrinsics)
+                loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
+
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.opt)
+
+            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+            self.scaler.step(self.opt)
+            self.scaler.update()
+        else:
+            outs = self(images, intrinsics, extrinsics)
+            loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
+            loss.backward()
+            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+            self.opt.step()
+
         preds = self.activate(outs)
-
-        loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
-        loss.backward()
-
-        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-        self.opt.step()
-
         return outs, preds, loss, oodl
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
@@ -104,3 +111,4 @@ class Postnet(Model):
         alpha = evidence + 1
 
         return alpha
+
