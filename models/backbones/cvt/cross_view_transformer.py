@@ -36,8 +36,7 @@ class Post(nn.Module):
 
         self.to_logits = nn.Sequential(
             nn.Conv2d(out_channels, self.latent_size, 3, padding=1, bias=False),
-            nn.BatchNorm2d(self.latent_size),
-            nn.ReLU(inplace=True))
+            nn.BatchNorm2d(self.latent_size))
 
         self.last = nn.Conv2d(n_classes, n_classes, 1)
         self.p_c = torch.tensor([.02, .98])

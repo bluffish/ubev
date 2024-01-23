@@ -1,6 +1,5 @@
 import argparse
 from time import time
-import cProfile
 
 from tensorboardX import SummaryWriter
 from tools.metrics import *

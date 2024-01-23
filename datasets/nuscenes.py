@@ -117,7 +117,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         if self.ood and not self.pseudo:
             return ood
         elif self.ood and self.pseudo:
-            return pseudo
+            return pseudo + id
         else:
             return id
 
@@ -239,7 +239,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
             lane[vehicles] = 0
             label = np.stack((vehicles, road, lane, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood[None])
+        return label, ood[None]
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
