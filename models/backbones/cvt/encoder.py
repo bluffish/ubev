@@ -19,10 +19,6 @@ W = 480
 O = 46
 
 
-def inverse(x):
-    return torch.tensor(np.linalg.inv(x.cpu().numpy())).to(x.device)
-
-
 def generate_grid(height: int, width: int):
     xs = torch.linspace(0, 1, width)
     ys = torch.linspace(0, 1, height)
@@ -112,7 +108,7 @@ class BEVEmbedding(nn.Module):
 
         # map from bev coordinates to ego frame
         V = get_view_matrix(bev_height, bev_width, h_meters, w_meters, offset)  # 3 3
-        V_inv = inverse(torch.FloatTensor(V))  # 3 3
+        V_inv = torch.inverse(torch.FloatTensor(V))  # 3 3
         grid = V_inv @ rearrange(grid, 'd h w -> d (h w)')  # 3 (h w)
         grid = rearrange(grid, 'd (h w) -> d h w', h=h, w=w)  # 3 h w
 
@@ -357,8 +353,8 @@ class Encoder(nn.Module):
         b, n, _, _, _ = images.shape
 
         image = images.flatten(0, 1)  # b n c h w
-        I_inv = inverse(intrinsics)  # b n 3 3
-        E_inv = inverse(extrinsics)  # b n 4 4
+        I_inv = torch.inverse(intrinsics)  # b n 3 3
+        E_inv = torch.inverse(extrinsics)  # b n 4 4
 
         image = self.norm(image)
 

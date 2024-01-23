@@ -25,10 +25,11 @@ class Post(nn.Module):
     def __init__(
             self, out_channels,
             dim_last: int = 64,
-            n_classes: int = 4,
+            n_classes: int = 2,
     ):
         super().__init__()
         self.latent_size = 16
+        self.n_classes = n_classes
 
         self.flow = Density(dim_latent=self.latent_size, num_mixture_elements=n_classes)
         self.evidence = Evidence(scale='latent-new')
@@ -38,9 +39,8 @@ class Post(nn.Module):
             nn.BatchNorm2d(self.latent_size),
             nn.ReLU(inplace=True))
 
-        self.n_classes = n_classes
         self.last = nn.Conv2d(n_classes, n_classes, 1)
-        self.p_c = torch.tensor([.015, .2, .05, .735])
+        self.p_c = torch.tensor([.02, .98])
 
     def forward(self, x):
         x = self.to_logits(x)
@@ -66,11 +66,12 @@ class Post(nn.Module):
 class CrossViewTransformer(nn.Module):
     def __init__(
         self,
-        dim_last: int = 64,
-        n_classes: int = 4,
+        dim_last=64,
+        n_classes=2,
     ):
         super().__init__()
 
+        self.n_classes = n_classes
         self.encoder = Encoder()
         self.decoder = Decoder(128, [128, 128, 64])
 

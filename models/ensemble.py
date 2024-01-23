@@ -21,9 +21,8 @@ class ModelPackage(nn.Module):
 class Ensemble(Model):
     def __init__(self, *args, **kwargs):
         super(Ensemble, self).__init__(*args, **kwargs)
-        self.n_models = 3
 
-    def create_backbone(self, backbone, n_models=5):
+    def create_backbone(self, backbone, n_models=3):
         print("Ensemble activation")
 
         self.backbone = nn.DataParallel(
@@ -37,30 +36,36 @@ class Ensemble(Model):
             dim=1
         )
 
+    def load(self, state_dict):
+        if len(state_dict) != len(self.backbone.module.models):
+            raise Exception("Different amount of checkpoints from ensemble size!")
+
+        for i, sd in enumerate(state_dict):
+            nsd = {k.replace("backbone.module.", ""): v for k, v in sd['model_state_dict'].items()}
+            self.backbone.module.models[i].load_state_dict(nsd)
+
+        if self.opt is not None:
+            self.opt.load_state_dict(state_dict[0]['optimizer_state_dict'])
+
+        if self.scaler is not None:
+            self.scaler.load_state_dict(state_dict['scaler_state_dict'])
+
     @staticmethod
     def aleatoric(logits):
-        return entropy(torch.mean(logits, dim=0))
+        return torch.mean(entropy(logits, dim=2), dim=0)
 
     @staticmethod
     def epistemic(logits):
         pred, _ = logits.max(dim=2)
         var = torch.var(pred, dim=0)
-        return (1 - 1 / var)[:, None]
+        return (1 - 1 / var).unsqueeze(1)
 
-    def loss(self, logits, target):
-        losses = torch.zeros(logits.shape[0])
-
-        for i in range(logits.shape[0]):
-            if self.loss_type == 'ce':
-                losses[i] = ce_loss(logits[i], target, weights=self.weights).mean()
-            elif self.loss_type == 'focal':
-                losses[i] = focal_loss(logits[i], target, weights=self.weights, n=2).mean()
-            else:
-                raise NotImplementedError()
-
-        return losses.mean()
+    @staticmethod
+    def activate(logits):
+        return torch.mean(torch.softmax(logits, dim=2), dim=0)
 
     def forward(self, images, intrinsics, extrinsics):
-        x = self.backbone(images[None], intrinsics[None], extrinsics[None])[0]
+        x = self.backbone(images[None], intrinsics[None], extrinsics[None])
+
         return x
 

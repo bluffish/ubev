@@ -62,10 +62,9 @@ def update_intrinsics(intrinsics, top_crop=0.0, left_crop=0.0, scale_width=1.0, 
 
 
 def calculate_birds_eye_view_parameters(x_bounds, y_bounds, z_bounds):
-    bev_resolution = torch.tensor([row[2] for row in [x_bounds, y_bounds, z_bounds]])
-    bev_start_position = torch.tensor([row[0] + row[2] / 2.0 for row in [x_bounds, y_bounds, z_bounds]])
-    bev_dimension = torch.tensor([(row[1] - row[0]) / row[2] for row in [x_bounds, y_bounds, z_bounds]],
-                                 dtype=torch.long)
+    bev_resolution = np.array([row[2] for row in [x_bounds, y_bounds, z_bounds]])
+    bev_start_position = np.array([row[0] + row[2] / 2.0 for row in [x_bounds, y_bounds, z_bounds]])
+    bev_dimension = np.array([(row[1] - row[0]) / row[2] for row in [x_bounds, y_bounds, z_bounds]], dtype=np.int32)
 
     return bev_resolution, bev_start_position, bev_dimension
 

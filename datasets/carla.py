@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 
 import torchvision
 from torch.utils.data import Subset
@@ -29,7 +30,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         )
 
         self.bev_resolution, self.bev_start_position, self.bev_dimension = (
-            bev_resolution.numpy(), bev_start_position.numpy(), bev_dimension.numpy()
+            bev_resolution, bev_start_position, bev_dimension
         )
 
     def get_input_data(self, index, agent_path):
@@ -119,7 +120,7 @@ class CarlaDataset(torch.utils.data.Dataset):
             empty[road == 1] = 0
             label = np.stack((vehicles, road, lane, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood[None])
+        return label, ood[None]
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -142,12 +143,16 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0):
     data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
+    random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     if version == 'mini':
         g = torch.Generator()
-        g.manual_seed(0)
+        g.manual_seed(seed)
 
         sampler = torch.utils.data.RandomSampler(data, num_samples=128, generator=g)
 
@@ -156,7 +161,8 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
             batch_size=batch_size,
             num_workers=num_workers,
             drop_last=True,
-            sampler=sampler
+            sampler=sampler,
+            pin_memory=True,
         )
     else:
         loader = torch.utils.data.DataLoader(
@@ -165,6 +171,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
             num_workers=num_workers,
             shuffle=True,
             drop_last=True,
+            pin_memory=True,
         )
 
     return loader

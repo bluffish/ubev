@@ -9,16 +9,15 @@ import torchmetrics
 def bin_predictions(y_score, y_true, n_bins=10):
     max_prob, max_ind = y_score.max(dim=1)
 
-    acc_binned = torch.zeros((n_bins, ))
-    conf_binned = torch.zeros((n_bins, ))
-    bin_cardinalities = torch.zeros((n_bins, ))
+    acc_binned = torch.zeros((n_bins,))
+    conf_binned = torch.zeros((n_bins,))
+    bin_cardinalities = torch.zeros((n_bins,))
 
     bin_boundaries = torch.linspace(0, 1, n_bins + 1)
     lower_bin_boundary = bin_boundaries[:-1]
     upper_bin_boundary = bin_boundaries[1:]
 
     corrects = max_ind == y_true.argmax(dim=1)
-
 
     for b in range(n_bins):
         in_bin = (max_prob < upper_bin_boundary[b]) & (max_prob >= lower_bin_boundary[b])
@@ -43,6 +42,7 @@ def expected_calibration_error(pred, label, exclude=None, n_bins=10):
 
     acc, conf, bin_cardinalities = bin_predictions(y_score, y_true, n_bins=n_bins)
     ece = torch.abs(acc - conf) * bin_cardinalities
+    print(((acc - conf) * bin_cardinalities).sum())
     ece = ece.sum() / (y_true.shape[0])
 
     return conf, acc, ece
@@ -80,7 +80,7 @@ def unc_iou(y_score, y_true, thresh=.5):
     return intersect / union
 
 
-def patch_metrics(uncertainty_scores, uncertainty_labels):
+def patch_metrics(uncertainty_scores, uncertainty_labels, quantile=False):
     thresholds = np.linspace(0, 1, 11)
 
     pavpus = []
@@ -88,7 +88,12 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
     ugis = []
 
     for thresh in thresholds:
-        pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
+        if quantile:
+            perc = torch.quantile(uncertainty_scores, thresh).item()
+            pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels,
+                                              uncertainty_threshold=perc)
+        else:
+            pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
 
         pavpus.append(pavpu)
         agcs.append(agc)
@@ -118,13 +123,16 @@ def patch_metrics_q(uncertainty_scores, uncertainty_labels):
 def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0.5, uncertainty_threshold=0.2,
                     window_size=1):
     if window_size == 1:
+        uncertainty_labels = uncertainty_labels.cuda()
+        uncertainty_scores = uncertainty_scores.cuda()
+
         accurate = ~uncertainty_labels.long()
         uncertain = uncertainty_scores >= uncertainty_threshold
 
-        au = torch.sum(accurate & uncertain)
-        ac = torch.sum(accurate & ~uncertain)
-        iu = torch.sum(~accurate & uncertain)
-        ic = torch.sum(~accurate & ~uncertain)
+        au = torch.sum(accurate & uncertain).cpu()
+        ac = torch.sum(accurate & ~uncertain).cpu()
+        iu = torch.sum(~accurate & uncertain).cpu()
+        ic = torch.sum(~accurate & ~uncertain).cpu()
     else:
         ac, ic, au, iu = 0., 0., 0., 0.
 

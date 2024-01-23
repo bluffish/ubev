@@ -46,22 +46,23 @@ def change_params(config):
 
     if config['pos_class'] == 'vehicle':
         n_classes, classes = 2, ["vehicle", "background"]
-        weights = torch.tensor([2, 1])
+        weights = torch.tensor([2., 1.])
     elif config['pos_class'] == 'road':
         n_classes, classes = 2, ["road", "background"]
-        weights = torch.tensor([1, 1])
+        weights = torch.tensor([1., 1.])
     elif config['pos_class'] == 'lane':
         n_classes, classes = 2, ["lane", "background"]
-        weights = torch.tensor([5, 1])
+        weights = torch.tensor([5., 1.])
     elif config['pos_class'] == 'all':
         n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
-        weights = torch.tensor([3, 1, 2, 1])
+        weights = torch.tensor([3., 1., 2., 1.])
     else:
         raise NotImplementedError("Invalid Positive Class")
 
     return classes, n_classes, weights
 
 
+@torch.no_grad()
 def run_loader(model, loader):
     predictions = []
     ground_truth = []

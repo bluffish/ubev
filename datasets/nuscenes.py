@@ -1,4 +1,5 @@
 import os
+import random
 import warnings
 import torchvision
 
@@ -51,7 +52,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         )
 
         self.bev_resolution, self.bev_start_position, self.bev_dimension = (
-            bev_resolution.numpy(), bev_start_position.numpy(), bev_dimension.numpy()
+            bev_resolution, bev_start_position, bev_dimension
         )
 
         self.cameras = ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT']
@@ -290,7 +291,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=None):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=None, seed=0):
     if set == "train":
         ood, pseudo, is_train = False, False, True
     elif set == "val":
@@ -301,18 +302,41 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         ood, pseudo, is_train = True, True, False
     elif set == "ood":
         ood, pseudo, is_train = True, False, False
+    elif set == "test":
+        ood, pseudo, is_train = False, False, False
 
-    nusc, dataroot = get_nusc(version, dataroot)
+    # nusc, dataroot = get_nusc(version, dataroot)
+    nusc, dataroot = get_nusc("trainval", dataroot)
 
     data = NuScenesDataset(nusc, is_train, pos_class, ood=ood, pseudo=pseudo)
+    random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
-    loader = torch.utils.data.DataLoader(
-        data,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=True,
-        drop_last=True,
-    )
+    if version == 'mini':
+        g = torch.Generator()
+        g.manual_seed(seed)
+
+        sampler = torch.utils.data.RandomSampler(data, num_samples=128, generator=g)
+
+        loader = torch.utils.data.DataLoader(
+            data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            drop_last=True,
+            sampler=sampler,
+            pin_memory=True,
+        )
+    else:
+        loader = torch.utils.data.DataLoader(
+            data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            drop_last=True,
+            pin_memory=True
+        )
 
     return loader
 

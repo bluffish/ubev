@@ -53,7 +53,7 @@ if __name__ == "__main__":
     title = args.title
 
     scale = 1.5
-    n_bins = 20
+    n_bins = 50
 
     fig, axs = plt.subplots(1, 3, figsize=(18*scale, 6*scale))
 
@@ -84,7 +84,6 @@ if __name__ == "__main__":
         dataroot = f"../data/{config['dataset']}"
 
         preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
-
         label = group[name]['label'] if 'label' in group[name] else name
 
         fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(aleatoric, get_mis(preds, labels), exclude=oods)

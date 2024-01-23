@@ -8,8 +8,13 @@ class Baseline(Model):
         super(Baseline, self).__init__(*args, **kwargs)
 
     @staticmethod
-    def aleatoric(logits):
-        return entropy(logits)
+    def aleatoric(logits, mode='entropy'):
+        if mode == 'aleatoric':
+            soft = Baseline.activate(logits)
+            max_soft, hard = soft.max(dim=1)
+            return (1 - max_soft).unsqueeze(1)
+        elif mode == 'entropy':
+            return entropy(logits, dim=1)
 
     @staticmethod
     def epistemic(logits):

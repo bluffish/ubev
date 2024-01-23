@@ -18,6 +18,8 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 torch.set_float32_matmul_precision('high')
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -26,6 +28,9 @@ torch.set_printoptions(precision=10)
 
 @cached()
 def eval(config, set, split, dataroot):
+    for gpu in config['gpus']:
+        torch.inverse(torch.ones((1, 1), device=gpu))
+
     classes, n_classes, weights = change_params(config)
 
     loader = datasets[config['dataset']](
@@ -42,9 +47,13 @@ def eval(config, set, split, dataroot):
         n_classes=n_classes
     )
 
-    model.load(torch.load(config['pretrained']))
+    if config['type'] == 'ensemble':
+        state_dicts = [torch.load(path) for path in config['ensemble']]
+        model.load(state_dicts)
+    else:
+        model.load(torch.load(config['pretrained']))
+
     model.eval()
-    model.training = False
 
     print("--------------------------------------------------")
     print(f"Running eval on {split}")
@@ -93,6 +102,7 @@ if __name__ == "__main__":
     parser.add_argument( '--split', default="mini", required=False, type=str)
     parser.add_argument('-s', '--set', default="ood", required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)
@@ -103,11 +113,6 @@ if __name__ == "__main__":
 
     print(f"Using config {args.config}")
     config = get_config(args)
-
-    if config['backbone'] == 'cvt':
-        torch.backends.cudnn.enabled = False
-    else:
-        torch.backends.cudnn.enabled = True
 
     dataroot = f"../data/{config['dataset']}"
     split, metric, set = args.split, args.metric, args.set
@@ -126,8 +131,8 @@ if __name__ == "__main__":
     brier = brier_score(preds, labels, exclude=oods)
 
     mis = preds.argmax(dim=1) != labels.argmax(dim=1)
-    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
     mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
+    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
     ece_graph, ece = plot_ece(preds, labels, exclude=oods)
 
     print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")
