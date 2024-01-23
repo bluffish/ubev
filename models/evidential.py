@@ -8,11 +8,10 @@ class Evidential(Model):
     def __init__(self, *args, **kwargs):
         super(Evidential, self).__init__(*args, **kwargs)
 
+        # !! Will be overwrite after the model is created in train.py !!
         self.beta_lambda = 0.001
         self.ood_lambda = 0.01
         self.k = 64
-
-        print(f"BETA LAMBDA: {self.beta_lambda}")
 
     @staticmethod
     def aleatoric(alpha, mode='aleatoric'):

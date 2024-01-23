@@ -99,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument( '--split', default="mini", required=False, type=str)
+    parser.add_argument('--split', default="mini", required=False, type=str)
     parser.add_argument('-s', '--set', default="ood", required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)

@@ -1,6 +1,7 @@
 import argparse
 from time import time
 import cProfile
+import json
 
 from tensorboardX import SummaryWriter
 from tools.metrics import *
@@ -18,25 +19,11 @@ torch.backends.cudnn.enabled = True
 print(torch.__version__)
 
 
-def train():
+def train(config):
     classes, n_classes, weights = change_params(config)
 
-    if config['loss'] == 'focal':
-        config['learning_rate'] *= 4
-
-    if config['ood']:
-        if config['stable']:
-            train_set = "train_aug_stable"
-            val_set = "val_aug_stable"
-        else:
-            train_set = "train_aug"
-            val_set = "val_aug"
-    else:
-        train_set = "train"
-        val_set = "val"
-
     train_loader = datasets[config['dataset']](
-        train_set, split, dataroot, config['pos_class'],
+        config['train_set'], split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=True,
@@ -44,7 +31,7 @@ def train():
     )
 
     val_loader = datasets[config['dataset']](
-        val_set, split, dataroot, config['pos_class'],
+        config['val_set'], split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=False,
@@ -74,17 +61,22 @@ def train():
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
         print(f"Loaded pretrained weights: {config['pretrained']}")
-        scheduler = None
-    else:
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            model.opt,
-            div_factor=10,
-            pct_start=.3,
-            final_div_factor=10,
-            max_lr=config['learning_rate'],
-            epochs=config['num_epochs'],
-            steps_per_epoch=len(train_loader.dataset) // config['batch_size']
-        )
+
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        model.opt,
+        div_factor=10,
+        pct_start=.3,
+        final_div_factor=10,
+        max_lr=config['learning_rate'],
+        epochs=config['num_epochs'],
+        steps_per_epoch=len(train_loader.dataset) // config['batch_size']
+    )
+
+    if 'pretrained' in config:
+        pt_name = os.path.basename(config['pretrained'])
+        scheduler_path = os.path.join(os.path.dirname(config['pretrained']), 'scheduler_'+pt_name)
+        if os.path.isfile(scheduler_path):
+            scheduler.load_state_dict(torch.load(scheduler_path))
 
     if 'gamma' in config:
         model.gamma = config['gamma']
@@ -117,6 +109,9 @@ def train():
     writer = SummaryWriter(logdir=config['logdir'])
 
     writer.add_text("config", str(config))
+
+    with open((os.path.join(config['logdir'], f'config.json')), 'w') as f:
+        json.dump(config, f, indent=4)
 
     step = 0
 
@@ -227,35 +222,52 @@ def train():
             print(f"Validation loss: {val_loss}")
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
+        if scheduler is not None:
+            torch.save(scheduler.state_dict(), os.path.join(config['logdir'], f'scheduler_{epoch}.pt'))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("config")
+    parser.add_argument('backbone', choices=['lss', 'cvt', 'fiery'], type=str)
+    parser.add_argument('type', choices=['baseline', 'evidential', 'dropout', 'postnet', 'ensemble'], type=str)
+    parser.add_argument('dataset', choices=['nuscenes', 'carla'], type=str)
+
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
-    parser.add_argument('-l', '--logdir', required=False, type=str)
-    parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
+    parser.add_argument('-l', '--logdir', default=None, required=False, type=str)
+    parser.add_argument('-b', '--batch_size', default=32, required=False, type=int)
+    parser.add_argument('--num_workers', default=32, required=False, type=int)
+    parser.add_argument('-s', '--split', default='trainval', required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
-    parser.add_argument('-e', '--num_epochs', required=False, type=int)
-    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
-    parser.add_argument('-f', '--fast', default=False, action='store_true')
+    parser.add_argument('-e', '--num_epochs', default=20, required=False, type=int)
+    parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
+    parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
+    parser.add_argument('--mixed', default=False, action='store_true', help='Use mixed percision')
 
     parser.add_argument('--seed', default=0, required=False, type=int)
-    parser.add_argument('--stable', default=False, action='store_true')
+    # Removed. Directly pass stable dataset name train_aug_stable and val_aug_stable with --train_set and --val_set instead.
+    #parser.add_argument('--stable', default=False, action='store_true')
+
+    parser.add_argument('--weight_decay', default=0.0000001, required=False, type=float)
+    parser.add_argument('--learning_rate', default=0.01, required=False, type=float)
 
     parser.add_argument('--loss', default="ce", required=False, type=str)
-    parser.add_argument('--gamma', required=False, type=float)
-    parser.add_argument('--beta', required=False, type=float)
-    parser.add_argument('--ol', required=False, type=float)
-    parser.add_argument('--k', required=False, type=float)
+    parser.add_argument('--gamma', required=False, type=float)  # 0.1
+    parser.add_argument('--beta', required=False, type=float, help='Evidential beta')   # 0.0001
+    parser.add_argument('--ol', required=False, type=float, help='Evidential lambda')   # 0.1
+    parser.add_argument('--k', required=False, type=float, help='Evidential k')         # 64
+
+    parser.add_argument('--train_set', required=False, type=str)
+    parser.add_argument('--val_set', required=False, type=str)
 
     args = parser.parse_args()
 
-    print(f"Using config {args.config}")
-    config = get_config(args)
+    config = {}
+
+    for key, value in vars(args).items():
+        if value is not None:
+            config[key] = value
 
     torch.manual_seed(config['seed'])
     np.random.seed(config['seed'])
@@ -271,4 +283,16 @@ if __name__ == "__main__":
     split = args.split
     dataroot = f"../data/{config['dataset']}"
 
-    train()
+    if 'logdir' not in config or config['logdir'] is None:
+        logdir = f"outputs_th/{config['dataset']}/{config['pos_class']}/{config['backbone']}_{config['type']}/{config['loss']}"
+        if 'gamma' in config:
+            logdir += f"_gamma={config['gamma']}"
+        if 'beta' in config:
+            logdir += f"_beta={config['beta']}"
+        if 'ol' in config:
+            logdir += f"_ol={config['ol']}"
+        if 'k' in config:
+            logdir += f"_k={config['k']}"
+        config['logdir'] = logdir
+
+    train(config)

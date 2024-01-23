@@ -30,6 +30,7 @@ class Model(nn.Module):
         self.n_classes = n_classes
         self.opt = opt
         self.scaler = scaler
+        # !! Will be overwrite after the model is created in train.py !!
         self.gamma = .1
         self.tsne = False
 
@@ -103,4 +104,4 @@ class Model(nn.Module):
         return outs, preds, loss
 
     def forward(self, images, intrinsics, extrinsics):
-        pass
+        raise NotImplementedError()

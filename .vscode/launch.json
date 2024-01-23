@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train.py evidential-LSS-UFCE-Reg on nuScnce",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "lss", "evidential", "nuscenes",
+                "-g", "0", "1",
+                "--weight_decay", "0.0000001", "--learning_rate", "0.01",
+                "--ood", "--loss", "ce",
+                "--gamma", "0.1", "--beta", "0", "--ol", "0.1", "--k", "64",
+                "--train_set", "train_id_pseudo",
+                "--val_set", "val_id_pseudo",
+                "-c", "vehicle"
+            ]
+        }
+    ]
+}
