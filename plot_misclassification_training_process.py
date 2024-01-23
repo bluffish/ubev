@@ -127,11 +127,20 @@ def plot_ood_detection_results(
 
 
 if __name__ == "__main__":
-
-    models_folder = "outputs_bin/carla/road"
-    for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
-        pt_path = os.path.join(models_folder, model_folder_name)
-        if not os.path.exists(os.path.join(pt_path, "19.pt")):
-            continue
-        model_name = model_folder_name
-        plot_ood_detection_results(pt_path=pt_path, model_name=model_name, pos_class="road", save_path="plots/LSS_CARLA_road")
+    for pos_class in ["vehicle", "lane", "road"]:
+        models_folder = f"outputs_bin/carla/{pos_class}"
+        for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
+            pt_path = os.path.join(models_folder, model_folder_name)
+            if not os.path.exists(os.path.join(pt_path, "19.pt")):
+                continue
+            if model_folder_name.startswith("lss"):
+                backbone_name = "lss"
+                config_path="./configs/eval_carla_lss_evidential.yaml"
+            elif model_folder_name.startswith("cvt"):
+                backbone_name = "cvt"
+                config_path="./configs/eval_carla_cvt_evidential.yaml"
+            else:
+                print(f"Backbone model not recognized: {backbone_name}")
+                continue
+            model_name = pos_class+"_"+model_folder_name
+            plot_ood_detection_results(pt_path=pt_path, model_name=model_name, pos_class=pos_class, backbone_name=backbone_name, config_path=config_path, save_path=f"plots/carla_{pos_class}")

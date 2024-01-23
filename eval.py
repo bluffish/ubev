@@ -55,7 +55,7 @@ def eval(config, set, split, dataroot):
     print(f"Pretrained: {config['pretrained']} ")
     print("--------------------------------------------------")
 
-    os.makedirs(config['logdir'], exist_ok=True)
+    #os.makedirs(config['logdir'], exist_ok=True)
 
     preds, labels, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
 

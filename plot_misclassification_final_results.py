@@ -123,10 +123,15 @@ def plot_misclassification_detection_final_results(
     fig.savefig(os.path.join(save_path, f"{model_name}-ValidationTestTrain-mis-Metrics.svg"), format='svg')
 
 if __name__ == "__main__":
-    models_folder = "outputs_bin/carla/vehicle"
-    for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
-        pt_path = os.path.join(models_folder, model_folder_name, "19.pt")
-        if not os.path.exists(pt_path):
-            continue
-        model_name = "LSS_CARLA_grid_aug_"+model_folder_name
-        plot_misclassification_detection_final_results(pt_path=pt_path, model_name=model_name, pos_class="vehicle", save_path="plots/LSS_CARLA_vehicle")
+    for pos_class in ["vehicle", "lane", "road"]:
+        models_folder = f"outputs_bin/carla/{pos_class}"
+        for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
+            pt_path = os.path.join(models_folder, model_folder_name, "19.pt")
+            if not os.path.exists(pt_path):
+                continue
+            if model_folder_name.startswith("lss"):
+                config_path="./configs/eval_carla_lss_evidential.yaml"
+            elif model_folder_name.startswith("cvt"):
+                config_path="./configs/eval_carla_cvt_evidential.yaml"
+            model_name = pos_class+"_"+model_folder_name
+            plot_misclassification_detection_final_results(pt_path=pt_path, model_name=model_name, config_path=config_path, pos_class=pos_class, save_path=f"plots/carla_{pos_class}")

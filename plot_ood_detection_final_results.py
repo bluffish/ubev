@@ -59,9 +59,6 @@ def plot_ood_detection_final_results(
     ious = {}
 
     for i, lset in enumerate(["ood", "val_aug", "train_aug"]):
-        axs[i][0].set_xlabel(f'{lset} ROC')
-        axs[i][1].set_ylabel(f'{lset} PR')
-
         predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, lset, split, dataroot)
 
         iou = get_iou(predictions, ground_truth, exclude=oods)
@@ -78,11 +75,14 @@ def plot_ood_detection_final_results(
 
         axs[i][0].set_xlim([-0.05, 1.05])
         axs[i][0].set_ylim([-0.05, 1.05])
-        axs[i][0].legend(frameon=True, title="AUROC")
+        axs[i][0].set_title(f"{lset} AUROC")
+        axs[i][0].legend(frameon=True)
         axs[i][1].set_xlim([-0.05, 1.05])
         axs[i][1].set_ylim([-0.05, 1.05])
-        axs[i][1].legend(frameon=True, title="AUPR")
+        axs[i][1].set_title(f"{lset} AUPR")
+        axs[i][1].legend(frameon=True)
 
+    os.makedirs(save_path, exist_ok=True)
     fig.savefig(os.path.join(save_path, f"{model_name}-ood-Metrics.png"), format='png')
     fig.savefig(os.path.join(save_path, f"{model_name}-ood-Metrics.svg"), format='svg')
     with open(os.path.join(save_path, f"{model_name}-ious.json"), 'w') as f:
@@ -91,6 +91,8 @@ def plot_ood_detection_final_results(
 if __name__ == "__main__":
     models_folder = "outputs_bin/carla/grid_aug"
     for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
+        if model_folder_name.startswith("cvt"):
+            continue
         pt_path = os.path.join(models_folder, model_folder_name, "19.pt")
         model_name = "LSS_CARLA_grid_aug_"+model_folder_name
         plot_ood_detection_final_results(pt_path=pt_path, model_name=model_name, pos_class_name="vehicle", save_path="plots/LSS_CARLA_grid_aug")
