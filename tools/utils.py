@@ -15,6 +15,7 @@ from models.evidential import Evidential
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.postnet import Postnet
+from models.energy import Energy
 
 
 colors = torch.tensor([
@@ -30,6 +31,7 @@ models = {
     'ensemble': Ensemble,
     'dropout': Dropout,
     'postnet': Postnet,
+    'energy': Energy,
 }
 
 datasets = {

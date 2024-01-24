@@ -308,8 +308,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
     else:
         raise NotImplementedError(f"Dataset {set} not exist.")
 
-    # nusc, dataroot = get_nusc(version, dataroot)
-    nusc, dataroot = get_nusc("trainval", dataroot)
+    nusc, dataroot = get_nusc(version, dataroot)
 
     data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo)
     random.seed(seed)

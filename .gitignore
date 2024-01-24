@@ -11,6 +11,7 @@ carla
 venv
 outputs
 outputs_bin
+outputs_th
 test
 
 *.npy

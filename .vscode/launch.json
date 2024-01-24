@@ -21,6 +21,25 @@
                 "--val_set", "val_id_pseudo",
                 "-c", "vehicle"
             ]
+        },
+        {
+            "name": "train.py energy-LSS-UFCE-Reg on nuScnce mini",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "lss", "energy", "nuscenes",
+                "-g", "2", "3",
+                "--weight_decay", "0.0000001", "--learning_rate", "0.01",
+                "--ood", "--loss", "ce",
+                "--gamma", "0.1", "--beta", "0", "--ol", "0.1", "--k", "64",
+                "--train_set", "train_id_pseudo",
+                "--val_set", "val_id_pseudo",
+                "-c", "vehicle",
+                "--split", "mini"
+            ]
         }
     ]
 }

@@ -230,7 +230,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('backbone', choices=['lss', 'cvt', 'fiery'], type=str)
-    parser.add_argument('type', choices=['baseline', 'evidential', 'dropout', 'postnet', 'ensemble'], type=str)
+    parser.add_argument('type', choices=['baseline', 'evidential', 'dropout', 'postnet', 'ensemble', 'energy'], type=str)
     parser.add_argument('dataset', choices=['nuscenes', 'carla'], type=str)
 
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
