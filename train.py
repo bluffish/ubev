@@ -28,8 +28,8 @@ def train():
             train_set = "train_aug_stable"
             val_set = "val_aug_stable"
         else:
-            train_set = "train_aug"
-            val_set = "val_aug"
+            train_set = "train_comb"
+            val_set = "val_comb"
     else:
         train_set = "train"
         val_set = "val"

@@ -42,7 +42,6 @@ def expected_calibration_error(pred, label, exclude=None, n_bins=10):
 
     acc, conf, bin_cardinalities = bin_predictions(y_score, y_true, n_bins=n_bins)
     ece = torch.abs(acc - conf) * bin_cardinalities
-    print(((acc - conf) * bin_cardinalities).sum())
     ece = ece.sum() / (y_true.shape[0])
 
     return conf, acc, ece

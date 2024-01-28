@@ -16,13 +16,14 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, pos_class, ood=False, pseudo=False):
+    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False):
+        self.ind = ind
         self.ood = ood
         self.pseudo = pseudo
         self.pos_class = pos_class
 
-        self.true_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
-        self.pseudo_ood = ["vehicle.motorcycle"]
+        self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
+        self.true_ood = ["vehicle.motorcycle"]
 
         self.all_ood = self.true_ood + self.pseudo_ood
 
@@ -77,18 +78,15 @@ class NuScenesDataset(torch.utils.data.Dataset):
         samples = [samp for samp in samples if self.nusc.get('scene', samp['scene_token'])['name'] in self.scenes]
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
-        ood = []
-        pseudo = []
-        id = []
-        both = []
+        records = []
 
         for rec in samples:
             ego_pose = self.nusc.get('ego_pose', rec['data']['LIDAR_TOP'])
 
             ego_coord = ego_pose['translation']
 
-            true = False
-            psd = False
+            is_true_ood = False
+            is_pseudo_ood = False
 
             for tok in rec['anns']:
                 inst = self.nusc.get('sample_annotation', tok)
@@ -100,26 +98,19 @@ class NuScenesDataset(torch.utils.data.Dataset):
                     continue
 
                 if inst['category_name'] in self.true_ood:
-                    true = True
+                    is_true_ood = True
 
                 if inst['category_name'] in self.pseudo_ood:
-                    psd = True
+                    is_pseudo_ood = True
 
-            if true and psd:
-                both.append(rec)
-            elif true:
-                ood.append(rec)
-            elif psd:
-                pseudo.append(rec)
-            else:
-                id.append(rec)
+            if self.ind and not is_pseudo_ood and not is_true_ood:
+                records.append(rec)
+            if self.ood and is_true_ood:
+                records.append(rec)
+            if self.pseudo and is_pseudo_ood:
+                records.append(rec)
 
-        if self.ood and not self.pseudo:
-            return ood
-        elif self.ood and self.pseudo:
-            return pseudo + id
-        else:
-            return id
+        return records
 
     @staticmethod
     def get_resizing_and_cropping_parameters():
@@ -239,7 +230,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
             lane[vehicles] = 0
             label = np.stack((vehicles, road, lane, empty))
 
-        return label, ood[None]
+        return torch.tensor(label.copy()), torch.tensor(ood[None])
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
@@ -293,22 +284,33 @@ def get_nusc(version, dataroot):
 
 def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=None, seed=0):
     if set == "train":
-        ood, pseudo, is_train = False, False, True
+        ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":
-        ood, pseudo, is_train = False, False, False
+        ind, ood, pseudo, is_train = True, False, False, False
     elif set == "train_aug":
-        ood, pseudo, is_train = True, True, True
+        ind, ood, pseudo, is_train = False, False, True, True
     elif set == "val_aug":
-        ood, pseudo, is_train = True, True, False
+        ind, ood, pseudo, is_train = False, False, True, False
+    elif set == "train_comb":
+        ind, ood, pseudo, is_train = True, False, True, True
+    elif set == "val_comb":
+        ind, ood, pseudo, is_train = True, False, True, False
+    elif set == "train_full":
+        ind, ood, pseudo, is_train = True, True, True, True
+    elif set == "val_full":
+        ind, ood, pseudo, is_train = True, True, True, False
     elif set == "ood":
-        ood, pseudo, is_train = True, False, False
+        ind, ood, pseudo, is_train = False, True, False, False
     elif set == "test":
-        ood, pseudo, is_train = False, False, False
+        ind, ood, pseudo, is_train = True, False, False, False
+    elif set == "ood_test":
+        ind, ood, pseudo, is_train = True, True, False, False
+    else:
+        raise NotImplementedError(f"Dataset {set} not exist.")
 
-    # nusc, dataroot = get_nusc(version, dataroot)
-    nusc, dataroot = get_nusc("trainval", dataroot)
+    nusc, dataroot = get_nusc(version, dataroot)
 
-    data = NuScenesDataset(nusc, is_train, pos_class, ood=ood, pseudo=pseudo)
+    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)
@@ -339,4 +341,3 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         )
 
     return loader
-
