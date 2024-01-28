@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
-import yaml
+import json
 import os
 import re
 import tqdm
@@ -16,24 +16,24 @@ def sorted_alphanumeric(data):
     return sorted(data, key=alphanum_key)
 
 def plot_ood_detection_results(
-        pt_path,
+        pt_path, config_path,
         model_name,
-        backbone_name="lss",
-        config_path="./configs/eval_carla_lss_evidential.yaml",
+        gpus=[6, 7],
         save_path="plots",
     ):
     torch.manual_seed(0)
     np.random.seed(0)
 
-    model = Evidential([0], backbone=backbone_name)
-
     with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+        config = json.load(file)
     
+    backbone_name = config['backbone']
+    model = Evidential([0], backbone=backbone_name)
     config['ood'] = True
-    config['gpus'] = [6, 7]
-    config['pos_class'] = 'vehicle'
-    target_class_name = "Vehicle"
+    if gpus is not None:
+        config['gpus'] = [int(i) for i in gpus]
+    
+    target_class_name = config['pos_class']
 
     tags = ["Background mIOU", f"{target_class_name} mIOU", "OOD AUROC", "OOD AUPR",
             f"({target_class_name} IOU+OOD PR)/2", "Total Loss", "UCE/UFocal Loss", "OOD Reg."]
@@ -118,7 +118,8 @@ if __name__ == "__main__":
     models_folder = "outputs_bin/carla/grid_aug"
     for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
         pt_path = os.path.join(models_folder, model_folder_name)
+        config_path = os.path.join(models_folder, model_folder_name, "config.json")
         if not os.path.exists(os.path.join(pt_path, "19.pt")):
             continue
         model_name = model_folder_name
-        plot_ood_detection_results(pt_path=pt_path, model_name=model_name, save_path="plots/LSS_CARLA_grid_aug")
+        plot_ood_detection_results(pt_path=pt_path, config_path=config_path, model_name=model_name, save_path="plots/LSS_CARLA_grid_aug")

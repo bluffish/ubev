@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
-import yaml
+import json
 import os
 import re
 import tqdm
@@ -16,24 +16,21 @@ def sorted_alphanumeric(data):
     return sorted(data, key=alphanum_key)
 
 def plot_ood_detection_results(
-        pt_path,
+        pt_path, config_path,
         model_name,
-        backbone_name="lss",
-        pos_class="vehicle",
-        config_path="./configs/eval_carla_lss_evidential.yaml",
         save_path="plots",
     ):
     torch.manual_seed(0)
     np.random.seed(0)
 
-    model = Evidential([0], backbone=backbone_name)
-
     with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+        config = json.load(file)
+
+    model = Evidential([0], backbone=config['backbone'])
     
     config['ood'] = True
     config['gpus'] = [2, 3]
-    config['pos_class'] = pos_class
+    pos_class = config['pos_class']
     target_class_name = pos_class
 
     tags = ["Background mIOU", f"{target_class_name} mIOU", "MD AUROC", "MD AUPR",
@@ -131,16 +128,8 @@ if __name__ == "__main__":
         models_folder = f"outputs_bin/carla/{pos_class}"
         for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
             pt_path = os.path.join(models_folder, model_folder_name)
+            config_path = os.path.join(models_folder, model_folder_name, "config.json")
             if not os.path.exists(os.path.join(pt_path, "19.pt")):
                 continue
-            if model_folder_name.startswith("lss"):
-                backbone_name = "lss"
-                config_path="./configs/eval_carla_lss_evidential.yaml"
-            elif model_folder_name.startswith("cvt"):
-                backbone_name = "cvt"
-                config_path="./configs/eval_carla_cvt_evidential.yaml"
-            else:
-                print(f"Backbone model not recognized: {backbone_name}")
-                continue
             model_name = pos_class+"_"+model_folder_name
-            plot_ood_detection_results(pt_path=pt_path, model_name=model_name, pos_class=pos_class, backbone_name=backbone_name, config_path=config_path, save_path=f"plots/carla_{pos_class}")
+            plot_ood_detection_results(pt_path=pt_path, config_path=config_path, model_name=model_name, save_path=f"plots/carla_{pos_class}")

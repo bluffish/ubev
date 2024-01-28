@@ -29,8 +29,9 @@ class Energy(Model):
             return entropy(logits, dim=1)
 
     @staticmethod
-    def epistemic(logits):
-        return entropy(logits)
+    def epistemic(logits, T=1.0):
+        neg_energy = T * torch.logsumexp(logits/T, dim=1)
+        return -neg_energy
 
     @staticmethod
     def activate(logits):

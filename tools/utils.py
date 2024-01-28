@@ -1,4 +1,5 @@
 import os
+import re
 
 import cv2
 import matplotlib.pyplot as plt
@@ -146,3 +147,17 @@ def get_config(args):
             config[key] = value
 
     return config
+
+def find_latest_model_pt_filename(folder):
+    if not os.path.isdir(folder):
+        return None
+    pts = [filename for filename in os.listdir(folder) if re.match(r'\d+\.pt', filename)]
+    latest = -1
+    for filename in pts:
+        epoch = int(re.search(r'\d+', filename).group())
+        latest = max(latest, epoch)
+    if latest >= 0:
+        latest_pt_filename = f'{latest}.pt'
+        return latest_pt_filename
+    else:
+        return None

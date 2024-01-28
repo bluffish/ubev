@@ -3,7 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-import yaml
+import json
 import torch
 import numpy as np
 import tqdm
@@ -21,19 +21,16 @@ sns.set_context(
 )
 
 def plot_misclassification_detection_final_results(
-        pt_path, model_name, pos_class,
-        config_path="./configs/eval_carla_lss_evidential.yaml",
-        pseudo_oods=False,
+        pt_path, config_path, model_name,
         gpus=[4,5],
         save_path="plots/",
     ):
     torch.manual_seed(0)
     np.random.seed(0)
 
-    with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+    with open(config_path, 'r') as f:
+        config = json.load(f)
         config['pretrained'] = pt_path
-        config['logdir'] = f"plots/ood/{model_name}"
         config['three'] = config['five'] = config['tsne'] = False
 
         if gpus is not None:
@@ -41,10 +38,6 @@ def plot_misclassification_detection_final_results(
         
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
-        config['ood'] = True
-        config['pseudo'] = pseudo_oods
-        config['binary'] = True
-        config['pos_class'] = pos_class
 
         fig, axs = plt.subplots(9, 3, figsize=(18, 54))
         plt.subplots_adjust(left=0.05, right=0.95)
@@ -127,11 +120,8 @@ if __name__ == "__main__":
         models_folder = f"outputs_bin/carla/{pos_class}"
         for model_folder_name in tqdm.tqdm(os.listdir(models_folder)):
             pt_path = os.path.join(models_folder, model_folder_name, "19.pt")
+            config_path = os.path.join(models_folder, model_folder_name, "config.json")
             if not os.path.exists(pt_path):
                 continue
-            if model_folder_name.startswith("lss"):
-                config_path="./configs/eval_carla_lss_evidential.yaml"
-            elif model_folder_name.startswith("cvt"):
-                config_path="./configs/eval_carla_cvt_evidential.yaml"
             model_name = pos_class+"_"+model_folder_name
-            plot_misclassification_detection_final_results(pt_path=pt_path, model_name=model_name, config_path=config_path, pos_class=pos_class, save_path=f"plots/carla_{pos_class}")
+            plot_misclassification_detection_final_results(pt_path=pt_path, config_path=config_path, model_name=model_name, save_path=f"plots/carla_{pos_class}")

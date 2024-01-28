@@ -28,9 +28,8 @@ def replace_last_section(path, new_section):
     return new_path
 
 def plot_ood_detection_final_results(
-        pt_path, model_name, pos_class_name,
-        config_path="./configs/eval_carla_lss_evidential.yaml",
-        pseudo_oods=False,
+        pt_path, config_path,
+        model_name,
         gpus=[4,5],
         save_path="plots/",
     ):
@@ -40,7 +39,6 @@ def plot_ood_detection_final_results(
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
         config['pretrained'] = pt_path
-        config['logdir'] = f"plots/ood/{model_name}"
         config['three'] = config['five'] = config['tsne'] = False
 
         if gpus is not None:
@@ -49,9 +47,6 @@ def plot_ood_detection_final_results(
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
         config['ood'] = True
-        config['pseudo'] = pseudo_oods
-        config['binary'] = True
-        config['pos_class'] = "vehicle"
 
     fig, axs = plt.subplots(3, 2, figsize=(12, 18))
     plt.subplots_adjust(left=0.05, right=0.95)
@@ -94,5 +89,6 @@ if __name__ == "__main__":
         if model_folder_name.startswith("cvt"):
             continue
         pt_path = os.path.join(models_folder, model_folder_name, "19.pt")
+        config_path = os.path.join(models_folder, model_folder_name, "config.json")
         model_name = "LSS_CARLA_grid_aug_"+model_folder_name
-        plot_ood_detection_final_results(pt_path=pt_path, model_name=model_name, pos_class_name="vehicle", save_path="plots/LSS_CARLA_grid_aug")
+        plot_ood_detection_final_results(pt_path=pt_path, config_path=config_path, model_name=model_name, save_path="plots/LSS_CARLA_grid_aug")

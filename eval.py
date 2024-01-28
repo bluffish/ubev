@@ -1,3 +1,5 @@
+import json
+import re
 import torch.nn.functional
 from tools.viz import *
 from train import *
@@ -95,24 +97,31 @@ def eval(config, set, split, dataroot):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("config")
+    parser.add_argument('config')
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument('--split', default="mini", required=False, type=str)
-    parser.add_argument('-s', '--set', default="ood", required=False, type=str)
+    parser.add_argument('--split', default='mini', required=False, type=str)
+    parser.add_argument('-s', '--set', default='ood', required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)
-    parser.add_argument('-m', '--metric', default="rocpr", required=False)
+    parser.add_argument('-m', '--metric', default='rocpr', required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)
-    parser.add_argument('--pseudo', default=False, action='store_true')
-    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
     args = parser.parse_args()
 
+    with open(args.config, 'r') as f:
+        config = json.load(f)
+
     print(f"Using config {args.config}")
-    config = get_config(args)
+
+    for key, value in vars(args).items():
+        if value is not None:
+            config[key] = value
+
+    if 'pretrained' not in config or config['pretrained'] is None:
+        config['pretrained'] = os.path.join(config['logdir'], find_latest_model_pt_filename(config['logdir']))
 
     dataroot = f"../data/{config['dataset']}"
     split, metric, set = args.split, args.metric, args.set

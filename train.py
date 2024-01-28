@@ -19,7 +19,7 @@ torch.backends.cudnn.enabled = True
 print(torch.__version__)
 
 
-def train(config):
+def train(config, resume=False):
     classes, n_classes, weights = change_params(config)
 
     train_loader = datasets[config['dataset']](
@@ -52,16 +52,28 @@ def train(config):
         weight_decay=config['weight_decay']
     )
 
+    starting_epoch = 0
+
     if config['mixed']:
         model.scaler = torch.cuda.amp.GradScaler(enabled=True)
         print("Using mixed precision")
     else:
         print("Using full precision")
+    
+    if 'pretrained' in config:
+        model_load_path = config['pretrained']
+    if resume:
+        latest_pt_filename = find_latest_model_pt_filename(config['logdir'])
+        if latest_pt_filename is None:
+            print("!!! model checkpoints not found, cannot resume !!!")
+        model_load_path = os.path.join(config['logdir'], latest_pt_filename)
+        starting_epoch = int(os.path.basename(model_load_path).split('.')[0]) + 1
 
     if 'pretrained' in config:
-        model.load(torch.load(config['pretrained']))
-        print(f"Loaded pretrained weights: {config['pretrained']}")
+        model.load(torch.load(model_load_path))
+        print(f"Loaded pretrained weights: {model_load_path}")
 
+    steps_per_epoch=len(train_loader.dataset) // config['batch_size']
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         model.opt,
         div_factor=10,
@@ -69,12 +81,12 @@ def train(config):
         final_div_factor=10,
         max_lr=config['learning_rate'],
         epochs=config['num_epochs'],
-        steps_per_epoch=len(train_loader.dataset) // config['batch_size']
+        steps_per_epoch=steps_per_epoch
     )
 
     if 'pretrained' in config:
-        pt_name = os.path.basename(config['pretrained'])
-        scheduler_path = os.path.join(os.path.dirname(config['pretrained']), 'scheduler_'+pt_name)
+        pt_name = os.path.basename(model_load_path)
+        scheduler_path = os.path.join(os.path.dirname(model_load_path), 'scheduler_'+pt_name)
         if os.path.isfile(scheduler_path):
             scheduler.load_state_dict(torch.load(scheduler_path))
 
@@ -113,12 +125,10 @@ def train(config):
     with open((os.path.join(config['logdir'], f'config.json')), 'w') as f:
         json.dump(config, f, indent=4)
 
-    step = 0
-
     # enable to catch errors in loss function
     # torch.autograd.set_detect_anomaly(True)
-
-    for epoch in range(config['num_epochs']):
+    step = steps_per_epoch * starting_epoch
+    for epoch in range(starting_epoch, config['num_epochs']):
         model.train()
 
         writer.add_scalar('train/epoch', epoch, step)
@@ -238,9 +248,9 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--batch_size', default=32, required=False, type=int)
     parser.add_argument('--num_workers', default=32, required=False, type=int)
     parser.add_argument('-s', '--split', default='trainval', required=False, type=str)
-    parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-p', '--pretrained', required=False, type=str, help='Load pretrained model')
     parser.add_argument('-o', '--ood', default=False, action='store_true')
-    parser.add_argument('-e', '--num_epochs', default=20, required=False, type=int)
+    parser.add_argument('-e', '--num_epochs', default=100, required=False, type=int)
     parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
     parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
     parser.add_argument('--mixed', default=False, action='store_true', help='Use mixed percision')
@@ -252,7 +262,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight_decay', default=0.0000001, required=False, type=float)
     parser.add_argument('--learning_rate', default=0.01, required=False, type=float)
 
-    parser.add_argument('--loss', default="ce", required=False, type=str)
+    parser.add_argument('--loss', default='ce', choices=['ce', 'focal', 'al'], required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)  # 0.1
     parser.add_argument('--beta', required=False, type=float, help='Evidential beta')   # 0.0001
     parser.add_argument('--ol', required=False, type=float, help='Evidential lambda')   # 0.1
@@ -260,6 +270,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--train_set', required=False, type=str)
     parser.add_argument('--val_set', required=False, type=str)
+
+    parser.add_argument('--resume', default=False, action='store_true', help='Resume training from existing logdir. Do not use with --pretrained.')
 
     args = parser.parse_args()
 
@@ -295,4 +307,4 @@ if __name__ == "__main__":
             logdir += f"_k={config['k']}"
         config['logdir'] = logdir
 
-    train(config)
+    train(config, resume=args.resume)
