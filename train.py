@@ -151,7 +151,7 @@ def train():
                     writer.add_scalar('train/ood_loss', ood_loss, step)
 
                 if config['ood']:
-                    save_unc(model.epistemic(outs), ood, config['logdir'], "epistemic.png", "ood.png")
+                    save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'], "epistemic.png", "ood.png")
                 save_pred(preds, labels, config['logdir'])
 
             if step % 50 == 0:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
     parser.add_argument('-f', '--fast', default=False, action='store_true')
-
+    
     parser.add_argument('--seed', default=0, required=False, type=int)
     parser.add_argument('--stable', default=False, action='store_true')
 
