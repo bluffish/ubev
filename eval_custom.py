@@ -1,10 +1,7 @@
-import json
-import re
 import torch.nn.functional
 from tools.viz import *
 from train import *
 import seaborn as sns
-from cache import cached
 
 sns.set_style('white')
 sns.set_palette('muted')
@@ -28,7 +25,7 @@ np.random.seed(0)
 
 torch.set_printoptions(precision=10)
 
-@cached()
+
 def eval(config, set, split, dataroot):
     for gpu in config['gpus']:
         torch.inverse(torch.ones((1, 1), device=gpu))
@@ -66,7 +63,7 @@ def eval(config, set, split, dataroot):
     print(f"Pretrained: {config['pretrained']} ")
     print("--------------------------------------------------")
 
-    #os.makedirs(config['logdir'], exist_ok=True)
+    os.makedirs(config['logdir'], exist_ok=True)
 
     preds, labels, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
 
@@ -82,9 +79,9 @@ def eval(config, set, split, dataroot):
             epistemic.append(model.epistemic(out))
             raw.append(out)
 
-            # save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
-            # save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
-            # save_pred(pred, label, config['logdir'])
+            save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
+            save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
+            save_pred(pred, label, config['logdir'])
 
     return (torch.cat(preds, dim=0),
             torch.cat(labels, dim=0),
@@ -97,63 +94,53 @@ def eval(config, set, split, dataroot):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('config')
+    parser.add_argument("config")
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument('--split', default='mini', required=False, type=str)
-    parser.add_argument('-s', '--set', default='ood', required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)
-    parser.add_argument('-m', '--metric', default='rocpr', required=False)
-    parser.add_argument('-r', '--save', default=False, action='store_true')
     parser.add_argument('--num_workers', required=False, type=int)
+    parser.add_argument('--pseudo', default=False, action='store_true')
+    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
     args = parser.parse_args()
 
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-
     print(f"Using config {args.config}")
-
-    for key, value in vars(args).items():
-        if value is not None:
-            config[key] = value
-
-    if 'pretrained' not in config or config['pretrained'] is None:
-        config['pretrained'] = os.path.join(config['logdir'], find_latest_model_pt_filename(config['logdir']))
+    config = get_config(args)
 
     dataroot = f"../data/{config['dataset']}"
-    split, metric, set = args.split, args.metric, args.set
 
-    preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot)
 
-    if args.save:
-        torch.save(preds, os.path.join(config['logdir'], 'preds.pt'))
-        torch.save(labels, os.path.join(config['logdir'], 'labels.pt'))
-        torch.save(oods, os.path.join(config['logdir'], 'oods.pt'))
-        torch.save(aleatoric, os.path.join(config['logdir'], 'aleatoric.pt'))
-        torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
-        torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
+    mis = get_mis(preds, labels)
+    iou = get_iou(preds, labels, exclude=oods)[0]
+    ece = expected_calibration_error(preds, labels, exclude=oods)[2]
+    roc, pr = roc_pr(aleatoric, mis, exclude=oods)[4:6]
 
-    iou = get_iou(preds, labels, exclude=oods)
-    brier = brier_score(preds, labels, exclude=oods)
+    ood_m_auroc = 0
+    ood_m_aupr = 0
+    k = 0
+    for i in range(epistemic.shape[0]):
+        if oods[i].sum() == 0:
+            continue
+        (a, b) = roc_pr(epistemic[i].unsqueeze(0), oods[i].unsqueeze(0))[4:6]
+        ood_m_auroc += a
+        ood_m_aupr += b
+        k += 1
 
-    mis = preds.argmax(dim=1) != labels.argmax(dim=1)
-    mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
-    ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
-    ece_graph, ece = plot_ece(preds, labels, exclude=oods)
+    ood_auroc, ood_aupr = roc_pr(epistemic, oods)[4:6]
+    _, _, oods_o, _, epistemic_o, _ = eval(config, "ood", "mini", dataroot)
+    ood_auroc_o, ood_aupr_o = roc_pr(epistemic_o, oods_o)[4:6]
 
-    print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")
-    print(f"Mis AUROC={mis_auroc:.5f}, AUPR={mis_aupr:.5f}")
-    print(f"OOD AUROC={ood_auroc:.5f}, AUPR={ood_aupr:.5f}")
+    print(round(iou, 3),
+          round(ece.item(), 6),
+          round(roc, 3),
+          round(pr, 3),
+          round(ood_m_auroc/k, 3),
+          round(ood_m_aupr/k, 3),
+          round(ood_auroc, 3),
+          round(ood_aupr, 3),
+          round(ood_auroc_o, 3),
+          round(ood_aupr_o, 3))
 
-    mis_graph.savefig(os.path.join(config['logdir'], "roc_pr_mis.png"))
-    ood_graph.savefig(os.path.join(config['logdir'], "roc_pr_ood.png"))
-    mis_graph.savefig(os.path.join(config['logdir'], "roc_pr_mis.pdf"), format="pdf")
-    ood_graph.savefig(os.path.join(config['logdir'], "roc_pr_ood.pdf"), format="pdf")
-
-    ece_graph.savefig(os.path.join(config['logdir'], "ece_calib.png"))
-    ece_graph.savefig(os.path.join(config['logdir'], "ece_calib.pdf"), format="pdf")
-
-    print(f"Graphs saved to {config['logdir']}")

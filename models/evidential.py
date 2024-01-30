@@ -14,7 +14,7 @@ class Evidential(Model):
         self.k = 64
 
     @staticmethod
-    def aleatoric(alpha, mode='aleatoric'):
+    def aleatoric(alpha, mode='dissonance'):
         if mode == 'aleatoric':
             soft = Evidential.activate(alpha)
             max_soft, hard = soft.max(dim=1)

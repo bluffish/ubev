@@ -341,4 +341,3 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         )
 
     return loader
-
