@@ -171,7 +171,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
             num_workers=num_workers,
             shuffle=True,
             drop_last=True,
-            pin_memory=True,
+            pin_memory=False,
         )
 
     return loader
