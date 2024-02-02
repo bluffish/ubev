@@ -34,12 +34,23 @@ def train():
         train_set = "train"
         val_set = "val"
 
+    if 'train_set' in config:
+        train_set = config['train_set']
+    if 'val_set' in config:
+        val_set = config['val_set']
+
+    if config['backbone'] == 'lss':
+        yaw = 0
+    elif config['backbone'] == 'cvt':
+        yaw = 180
+
     train_loader = datasets[config['dataset']](
         train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=True,
-        seed=config['seed']
+        seed=config['seed'],
+        yaw=yaw
     )
 
     val_loader = datasets[config['dataset']](
@@ -47,7 +58,8 @@ def train():
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=False,
-        seed=config['seed']
+        seed=config['seed'],
+        yaw=yaw
     )
 
     model = models[config['type']](
@@ -236,6 +248,11 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
+
+    parser.add_argument( '--train_set', required=False, type=str)
+    parser.add_argument( '--val_set', required=False, type=str)
+
+
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-e', '--num_epochs', required=False, type=int)

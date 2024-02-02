@@ -24,7 +24,8 @@ class Baseline(Model):
     def epistemic(logits, mode='energy', T=1.0):
         if mode == 'energy':
             neg_energy = T * torch.logsumexp(logits/T, dim=1)
-            return -neg_energy.unsqueeze(1)
+            energy = -neg_energy.unsqueeze(1)
+            return energy / energy.max()
         elif mode == 'entropy':
             return entropy(logits)
 

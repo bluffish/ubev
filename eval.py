@@ -31,12 +31,18 @@ def eval(config, set, split, dataroot):
     for gpu in config['gpus']:
         torch.inverse(torch.ones((1, 1), device=gpu))
 
+    if config['backbone'] == 'lss':
+        yaw = 0
+    elif config['backbone'] == 'cvt':
+        yaw = 180
+
     classes, n_classes, weights = change_params(config)
 
     loader = datasets[config['dataset']](
         set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
+        yaw=yaw
     )
 
     print(f"Using set: {set}")
