@@ -1,6 +1,5 @@
 import argparse
 from time import time
-import cProfile
 import json
 
 from tensorboardX import SummaryWriter
@@ -22,12 +21,37 @@ print(torch.__version__)
 def train(config, resume=False):
     classes, n_classes, weights = change_params(config)
 
+    if config['loss'] == 'focal':
+        config['learning_rate'] *= 4
+
+    if config['ood']:
+        if config['stable']:
+            train_set = "train_aug_stable"
+            val_set = "val_aug_stable"
+        else:
+            train_set = "train_comb"
+            val_set = "val_comb"
+    else:
+        train_set = "train"
+        val_set = "val"
+
+    if 'train_set' in config:
+        train_set = config['train_set']
+    if 'val_set' in config:
+        val_set = config['val_set']
+
+    if config['backbone'] == 'lss':
+        yaw = 0
+    elif config['backbone'] == 'cvt':
+        yaw = 180
+
     train_loader = datasets[config['dataset']](
         config['train_set'], split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=True,
-        seed=config['seed']
+        seed=config['seed'],
+        yaw=yaw
     )
 
     val_loader = datasets[config['dataset']](
@@ -35,7 +59,8 @@ def train(config, resume=False):
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=False,
-        seed=config['seed']
+        seed=config['seed'],
+        yaw=yaw
     )
 
     model = models[config['type']](
@@ -157,7 +182,7 @@ def train(config, resume=False):
                     writer.add_scalar('train/ood_loss', ood_loss, step)
 
                 if config['ood']:
-                    save_unc(model.epistemic(outs), ood, config['logdir'], "epistemic.png", "ood.png")
+                    save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'], "epistemic.png", "ood.png")
                 save_pred(preds, labels, config['logdir'])
 
             if step % 50 == 0:
@@ -246,6 +271,7 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', default=None, required=False, type=str)
     parser.add_argument('-b', '--batch_size', default=32, required=False, type=int)
+    parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
     parser.add_argument('--num_workers', default=32, required=False, type=int)
     parser.add_argument('-s', '--split', default='trainval', required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str, help='Load pretrained model')
