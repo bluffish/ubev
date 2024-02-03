@@ -252,7 +252,6 @@ if __name__ == "__main__":
     parser.add_argument( '--train_set', required=False, type=str)
     parser.add_argument( '--val_set', required=False, type=str)
 
-
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
