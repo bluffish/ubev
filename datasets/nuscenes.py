@@ -283,7 +283,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, is_train=False, mini=False, yaw=180):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, is_train=False, yaw=180):
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":
@@ -309,10 +309,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
     else:
         raise NotImplementedError(f"Dataset {set} not exist.")
 
-    if mini:
-        nusc, dataroot = get_nusc("mini", dataroot)
-    else:
-        nusc, dataroot = get_nusc("trainval", dataroot)
+    nusc, dataroot = get_nusc("trainval", dataroot)
 
     data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw)
     random.seed(seed)
@@ -324,7 +321,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         g = torch.Generator()
         g.manual_seed(seed)
 
-        sampler = torch.utils.data.RandomSampler(data, num_samples=128, generator=g)
+        sampler = torch.utils.data.RandomSampler(data, num_samples=256, generator=g)
 
         loader = torch.utils.data.DataLoader(
             data,

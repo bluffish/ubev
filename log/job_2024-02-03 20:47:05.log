@@ -1,0 +1,4 @@
+GPU num utilized 0
+python -c 'import os, time;print("GPU num utilized",os.environ["CUDA_VISIBLE_DEVICES"]);time.sleep(0.5)'
+launched at 2024-02-03 20:47:05
+output log:

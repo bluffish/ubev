@@ -52,7 +52,7 @@ class Ensemble(Model):
 
     @staticmethod
     def aleatoric(logits):
-        return torch.mean(entropy(logits, dim=2), dim=0)
+        return entropy(torch.mean(logits, dim=0), dim=1)
 
     @staticmethod
     def epistemic(logits):

@@ -72,10 +72,13 @@ def eval(config, set, split, dataroot):
     os.makedirs(config['logdir'], exist_ok=True)
 
     preds, labels, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
+    total = 0
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation"):
+            t_0 = time()
             out = model(images, intrinsics, extrinsics).detach().cpu()
+            total += time() - t_0
             pred = model.activate(out)
 
             preds.append(pred)
@@ -88,6 +91,8 @@ def eval(config, set, split, dataroot):
             save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
             save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
             save_pred(pred, label, config['logdir'])
+
+    print(1000.*total/256)
 
     return (torch.cat(preds, dim=0),
             torch.cat(labels, dim=0),

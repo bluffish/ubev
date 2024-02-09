@@ -9,7 +9,7 @@ class Baseline(Model):
 
         self.m_in = -23.0
         self.m_out = -5.0
-        self.lambd = 0.1
+        self.ood_lambda = 0.1
 
     @staticmethod
     def aleatoric(logits, mode='entropy'):
@@ -21,11 +21,11 @@ class Baseline(Model):
             return entropy(logits, dim=1)
 
     @staticmethod
-    def epistemic(logits, mode='energy', T=1.0):
+    def epistemic(logits, mode='entropy', T=1.0):
         if mode == 'energy':
-            neg_energy = T * torch.logsumexp(logits/T, dim=1)
-            energy = -neg_energy.unsqueeze(1)
-            return energy / energy.max()
+            energy = -T * torch.logsumexp(logits/T, dim=1)
+            norm = (energy - energy.min()) / (energy.max() - energy.min())
+            return norm.unsqueeze(1)
         elif mode == 'entropy':
             return entropy(logits)
 
@@ -53,7 +53,7 @@ class Baseline(Model):
         Ec_in = -torch.logsumexp(logits.swapaxes(1, -1)[ind.bool().repeat(1, 2, 1, 1).swapaxes(1, -1)].reshape(-1, 2), dim=1)
         energy = torch.pow(F.relu(Ec_in-self.m_in), 2).mean() + torch.pow(F.relu(self.m_out-Ec_out), 2).mean()
 
-        oodl = self.lambd * energy
+        oodl = self.ood_lambda * energy
         loss = ce.mean() + oodl
 
         return loss, oodl
