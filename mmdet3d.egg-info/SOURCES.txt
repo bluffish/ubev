@@ -1,9 +1,0 @@
-README.md
-setup.py
-mmdet3d.egg-info/PKG-INFO
-mmdet3d.egg-info/SOURCES.txt
-mmdet3d.egg-info/dependency_links.txt
-mmdet3d.egg-info/not-zip-safe
-mmdet3d.egg-info/top_level.txt
-models/backbones/lss/bev_pool/src/bev_pool.cpp
-models/backbones/lss/bev_pool/src/bev_pool_cuda.cu
