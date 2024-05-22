@@ -12,6 +12,8 @@ venv
 outputs
 outputs_bin
 test
-
+build
+dist
+mmdet*
 *.npy
 *.pt
