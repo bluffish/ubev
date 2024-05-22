@@ -7,12 +7,31 @@ from nuscenes.eval.common.utils import quaternion_yaw
 from nuscenes.map_expansion.map_api import NuScenesMap
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.splits import create_splits_scenes
-from nuscenes.utils.data_classes import Box
+
+from lyft_dataset_sdk.lyftdataset import LyftDataset
 from shapely.errors import ShapelyDeprecationWarning
 
 from tools.geometry import *
 
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
+
+
+TRAIN_LYFT_INDICES = [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16,
+                      17, 18, 19, 20, 21, 23, 24, 27, 28, 29, 30, 31, 32,
+                      33, 35, 36, 37, 39, 41, 43, 44, 45, 46, 47, 48, 49,
+                      50, 51, 52, 53, 55, 56, 59, 60, 62, 63, 65, 68, 69,
+                      70, 71, 72, 73, 74, 75, 76, 78, 79, 81, 82, 83, 84,
+                      86, 87, 88, 89, 93, 95, 97, 98, 99, 103, 104, 107, 108,
+                      109, 110, 111, 113, 114, 115, 116, 117, 118, 119, 121, 122, 124,
+                      127, 128, 130, 131, 132, 134, 135, 136, 137, 138, 139, 143, 144,
+                      146, 147, 148, 149, 150, 151, 152, 153, 154, 156, 157, 158, 159,
+                      161, 162, 165, 166, 167, 171, 172, 173, 174, 175, 176, 177, 178,
+                      179]
+
+VAL_LYFT_INDICES = [0, 2, 4, 13, 22, 25, 26, 34, 38, 40, 42, 54, 57,
+                    58, 61, 64, 66, 67, 77, 80, 85, 90, 91, 92, 94, 96,
+                    100, 101, 102, 105, 106, 112, 120, 123, 125, 126, 129, 133, 140,
+                    141, 142, 145, 155, 160, 163, 164, 168, 169, 170]
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
@@ -23,27 +42,37 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.pos_class = pos_class
         self.yaw = yaw
 
-        self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
-        self.true_ood = ["vehicle.motorcycle"]
+        self.is_lyft = isinstance(nusc, LyftDataset)
+
+        if self.is_lyft:
+            self.dataroot = nusc.data_path
+        else:
+            self.dataroot = nusc.dataroot
+
+        if self.is_lyft:
+            self.pseudo_ood = ["bicycle"]
+            self.true_ood = ["motorcycle"]
+        else:
+            self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
+            self.true_ood = ["vehicle.motorcycle"]
 
         self.all_ood = self.true_ood + self.pseudo_ood
 
         self.nusc = nusc
         self.is_train = is_train
 
-        self.dataroot = self.nusc.dataroot
-
         self.mode = 'train' if self.is_train else 'val'
 
         self.scenes = self.get_scenes()
         self.ixes = self.prepro()
 
-        self.maps = {map_name: NuScenesMap(dataroot=self.dataroot, map_name=map_name) for map_name in [
-            "singapore-hollandvillage",
-            "singapore-queenstown",
-            "boston-seaport",
-            "singapore-onenorth",
-        ]}
+        if not self.is_lyft:
+            self.maps = {map_name: NuScenesMap(dataroot=self.dataroot, map_name=map_name) for map_name in [
+                "singapore-hollandvillage",
+                "singapore-queenstown",
+                "boston-seaport",
+                "singapore-onenorth",
+            ]}
 
         self.augmentation_parameters = self.get_resizing_and_cropping_parameters()
 
@@ -65,12 +94,19 @@ class NuScenesDataset(torch.utils.data.Dataset):
             self.sm[rec['name']] = log['location']
 
     def get_scenes(self):
-        split = {'v1.0-trainval': {True: 'train', False: 'val'},
-                 'v1.0-mini': {True: 'mini_train', False: 'mini_val'}, }[
-            self.nusc.version
-        ][self.is_train]
+        if self.is_lyft:
+            scenes = [row['name'] for row in self.nusc.scene]
 
-        scenes = create_splits_scenes()[split]
+            # Split in train/val
+            indices = TRAIN_LYFT_INDICES if self.is_train else VAL_LYFT_INDICES
+            scenes = [scenes[i] for i in indices]
+        else:
+            split = {'v1.0-trainval': {True: 'train', False: 'val'},
+                     'v1.0-mini': {True: 'mini_train', False: 'mini_val'}, }[
+                self.nusc.version
+            ][self.is_train]
+
+            scenes = create_splits_scenes()[split]
 
         return scenes
 
@@ -82,8 +118,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         records = []
 
         for rec in samples:
-            ego_pose = self.nusc.get('ego_pose', rec['data']['LIDAR_TOP'])
-
+            ego_pose = self.nusc.get('ego_pose', self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])['ego_pose_token'])
             ego_coord = ego_pose['translation']
 
             is_true_ood = False
@@ -94,8 +129,10 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
                 box_coord = inst['translation']
 
-                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50 or int(
-                        inst['visibility_token']) <= 2:
+                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50:
+                    continue
+
+                if not self.is_lyft and int(inst['visibility_token']) <= 2:
                     continue
 
                 if inst['category_name'] in self.true_ood:
@@ -112,6 +149,8 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 records.append(rec)
 
         return records
+
+        # return samples
 
     @staticmethod
     def get_resizing_and_cropping_parameters():
@@ -199,17 +238,29 @@ class NuScenesDataset(torch.utils.data.Dataset):
         for token in rec['anns']:
             inst = self.nusc.get('sample_annotation', token)
 
-            if int(inst['visibility_token']) == 1:
-                continue
+            if self.is_lyft:
+                if inst['category_name'] in ['bus', 'car', 'construction_vehicle', 'trailer', 'truck']:
+                    pts, _ = self.get_region(inst, trans, rot)
+                    cv2.fillPoly(vehicles, [pts], 1.0)
 
-            if inst['category_name'] in self.all_ood:
-                pts, _ = self.get_region(inst, trans, rot)
-                cv2.fillPoly(ood, [pts], 1.0)
-            elif 'vehicle' in inst['category_name']:
-                pts, _ = self.get_region(inst, trans, rot)
-                cv2.fillPoly(vehicles, [pts], 1.0)
+                if inst['category_name'] in self.all_ood:
+                    pts, _ = self.get_region(inst, trans, rot)
+                    cv2.fillPoly(ood, [pts], 1.0)
+            else:
+                if int(inst['visibility_token']) == 1:
+                    continue
 
-        road, lane = self.get_map(rec)
+                if 'vehicle' in inst['category_name']:
+                    pts, _ = self.get_region(inst, trans, rot)
+                    cv2.fillPoly(vehicles, [pts], 1.0)
+
+                if inst['category_name'] in self.all_ood:
+                    pts, _ = self.get_region(inst, trans, rot)
+                    cv2.fillPoly(ood, [pts], 1.0)
+
+        if not self.is_lyft:
+            road, lane = self.get_map(rec)
+
         empty = np.ones(self.bev_dimension[:2])
 
         if self.pos_class == 'vehicle':
@@ -283,7 +334,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, is_train=False, yaw=180):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False):
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":

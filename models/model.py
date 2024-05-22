@@ -36,11 +36,11 @@ class Model(nn.Module):
         self.create_backbone(backbone)
 
     def create_backbone(self, backbone):
-        self.backbone = nn.DataParallel(
-            backbones[backbone](n_classes=self.n_classes).to(self.device),
-            output_device=self.device,
-            device_ids=self.devices,
-        )
+            self.backbone = nn.DataParallel(
+                backbones[backbone](n_classes=self.n_classes).to(self.device),
+                output_device=self.device,
+                device_ids=self.devices,
+            )
 
     @staticmethod
     def aleatoric(x):

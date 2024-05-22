@@ -1,6 +1,5 @@
 from models.model import Model
 from tools.loss import *
-from tools.uncertainty import *
 
 
 class Baseline(Model):
@@ -21,7 +20,7 @@ class Baseline(Model):
             return entropy(logits, dim=1)
 
     @staticmethod
-    def epistemic(logits, mode='entropy', T=1.0):
+    def epistemic(logits, mode='energy', T=1.0):
         if mode == 'energy':
             energy = -T * torch.logsumexp(logits/T, dim=1)
             norm = (energy - energy.min()) / (energy.max() - energy.min())

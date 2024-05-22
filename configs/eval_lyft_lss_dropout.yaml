@@ -1,0 +1,8 @@
+type: 'dropout'
+backbone: 'lss'
+dataset: 'lyft'
+logdir: 'outputs/lyft/lss_dropout'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/lyft/lss_dropout/9.pt'

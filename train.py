@@ -77,12 +77,6 @@ def train():
         weight_decay=config['weight_decay']
     )
 
-    if config['mixed']:
-        model.scaler = torch.cuda.amp.GradScaler(enabled=True)
-        print("Using mixed precision")
-    else:
-        print("Using full precision")
-
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
         print(f"Loaded pretrained weights: {config['pretrained']}")
@@ -242,6 +236,7 @@ def train():
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -305,6 +300,6 @@ if __name__ == "__main__":
         torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
-    dataroot = f"../data/{config['dataset']}"
+    dataroot = f"../data/{config['dataset']}"\
 
     train()

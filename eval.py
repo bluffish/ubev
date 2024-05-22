@@ -1,5 +1,6 @@
 import torch.nn.functional
 from tools.viz import *
+from tools.utils import *
 from train import *
 import seaborn as sns
 
@@ -29,6 +30,8 @@ torch.set_printoptions(precision=10)
 def eval(config, set, split, dataroot):
     for gpu in config['gpus']:
         torch.inverse(torch.ones((1, 1), device=gpu))
+    if config['backbone'] == 'cvt':
+        torch.backends.cudnn.enabled = False
 
     if config['backbone'] == 'lss':
         yaw = 0
@@ -56,7 +59,7 @@ def eval(config, set, split, dataroot):
         state_dicts = [torch.load(path) for path in config['ensemble']]
         model.load(state_dicts)
     else:
-        model.load(torch.load(config['pretrained']))
+        model.load(torch.load(config['pretrained'], map_location='cuda:0'))
 
     model.eval()
 
@@ -73,26 +76,29 @@ def eval(config, set, split, dataroot):
 
     preds, labels, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
     total = 0
+    total_ep = 0
 
+    i = 0
     with torch.no_grad():
         for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation"):
-            t_0 = time()
             out = model(images, intrinsics, extrinsics).detach().cpu()
-            total += time() - t_0
+            total += ood.sum()
+            total_ep += (model.epistemic(out)**2).sum()
             pred = model.activate(out)
 
             preds.append(pred)
             labels.append(label)
             oods.append(ood.bool())
             aleatoric.append(model.aleatoric(out))
-            epistemic.append(model.epistemic(out))
+            epistemic.append(model.epistemic(out)**2)
             raw.append(out)
 
-            save_unc(model.epistemic(out), ood, config['logdir'], "epistemic.png", "ood.png")
+            save_unc(model.epistemic(out), ood, config['logdir'], f"{i}_epistemic.png", f"{i}_ood.png")
+            i += 1
             save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
             save_pred(pred, label, config['logdir'])
 
-    print(1000.*total/256)
+    print(total, total_ep)
 
     return (torch.cat(preds, dim=0),
             torch.cat(labels, dim=0),

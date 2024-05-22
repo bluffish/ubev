@@ -1,7 +1,6 @@
 import os
 import subprocess
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,12 +10,14 @@ from tqdm import tqdm
 
 from datasets.carla import compile_data as compile_data_carla
 from datasets.nuscenes import compile_data as compile_data_nuscenes
+from datasets.lyft import compile_data as compile_data_lyft
 
 from models.baseline import Baseline
 from models.evidential import Evidential
 from models.ensemble import Ensemble
 from models.dropout import Dropout
-from models.postnet import Postnet
+# from models.postnet import Postnet
+import cv2
 
 colors = torch.tensor([
     [0, 0, 255],
@@ -30,12 +31,13 @@ models = {
     'evidential': Evidential,
     'ensemble': Ensemble,
     'dropout': Dropout,
-    'postnet': Postnet,
+    'postnet': None,
 }
 
 datasets = {
     'nuscenes': compile_data_nuscenes,
     'carla': compile_data_carla,
+    'lyft': compile_data_lyft,
 }
 
 n_classes, classes = 2, ["vehicle", "background"]

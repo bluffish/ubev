@@ -1,0 +1,8 @@
+type: 'dropout'
+backbone: 'cvt'
+dataset: 'lyft'
+logdir: 'outputs/lyft/cvt_dropout'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/lyft/cvt_dropout/9.pt'

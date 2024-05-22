@@ -6,6 +6,7 @@ from efficientnet_pytorch import EfficientNet
 from torch import nn
 from torchvision.models.resnet import resnet18
 from models.gpn.density import Density, Evidence
+from models.backbones.lss.bev_pool.bev_pool import bev_pool
 
 
 def gen_dx_bx(x_bound, y_bound, z_bound):
@@ -341,11 +342,40 @@ class LiftSplatShoot(nn.Module):
 
         return final
 
+    def voxel_pooling_fast(self, geom_feats, x):
+        B, N, D, H, W, C = x.shape
+        Nprime = B * N * D * H * W
+
+        # flatten x
+        x = x.reshape(Nprime, C)
+
+        # flatten indices
+        geom_feats = ((geom_feats - (self.bx - self.dx / 2.)) / self.dx).long()
+        geom_feats = geom_feats.view(Nprime, 3)
+        batch_ix = torch.cat([torch.full([Nprime // B, 1], ix,
+                                         device=x.device, dtype=torch.long) for ix in range(B)])
+        geom_feats = torch.cat((geom_feats, batch_ix), 1)
+
+        # filter out points that are outside box
+        kept = (geom_feats[:, 0] >= 0) & (geom_feats[:, 0] < self.nx[0]) \
+               & (geom_feats[:, 1] >= 0) & (geom_feats[:, 1] < self.nx[1]) \
+               & (geom_feats[:, 2] >= 0) & (geom_feats[:, 2] < self.nx[2])
+        x = x[kept]
+
+        geom_feats = geom_feats[kept]
+
+        final = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
+
+        final = torch.cat(final.unbind(dim=2), 1)
+
+        return final
+
     def get_voxels(self, images, intrinsics, extrinsics):
         geom = self.get_geometry(intrinsics, extrinsics)
         x = self.get_cam_feats(images)
 
-        x = self.voxel_pooling(geom, x)
+        x = self.voxel_pooling_fast(geom, x)
+
         return x
 
     def forward(self, images, intrinsics, extrinsics):
