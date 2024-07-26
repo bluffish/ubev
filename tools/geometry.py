@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 import torch
 from nuscenes.utils.data_classes import Box
@@ -7,6 +6,7 @@ from pyquaternion import Quaternion
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 from scipy.ndimage import distance_transform_edt
+import cv2
 
 
 def dist_true(masks):

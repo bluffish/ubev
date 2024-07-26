@@ -1,5 +1,6 @@
 import argparse
-from time import time
+import random
+from time import time, sleep
 
 from tensorboardX import SummaryWriter
 from tools.metrics import *
@@ -76,12 +77,6 @@ def train():
         weight_decay=config['weight_decay']
     )
 
-    if config['mixed']:
-        model.scaler = torch.cuda.amp.GradScaler(enabled=True)
-        print("Using mixed precision")
-    else:
-        print("Using full precision")
-
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
         print(f"Loaded pretrained weights: {config['pretrained']}")
@@ -112,9 +107,10 @@ def train():
         model.beta_lambda = config['beta']
         print(f"Beta lambda is {model.beta_lambda}")
 
-    if config['fast']:
-        model = torch.compile(model, mode="reduce-overhead", fullgraph=True)
-        print("Using torch.compile")
+    if 'm_in' in config:
+        model.m_in = config['m_in']
+    if 'm_out' in config:
+        model.m_out = config['m_out']
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -161,6 +157,7 @@ def train():
 
                 if ood_loss is not None:
                     writer.add_scalar('train/ood_loss', ood_loss, step)
+                    writer.add_scalar('train/id_loss', loss-ood_loss, step)
 
                 if config['ood']:
                     save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'], "epistemic.png", "ood.png")
@@ -244,6 +241,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config")
+    parser.add_argument('-q', '--queue', default=False, action='store_true')
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
@@ -251,7 +249,6 @@ if __name__ == "__main__":
 
     parser.add_argument( '--train_set', required=False, type=str)
     parser.add_argument( '--val_set', required=False, type=str)
-
 
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
@@ -267,6 +264,8 @@ if __name__ == "__main__":
     parser.add_argument('--beta', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--k', required=False, type=float)
+    parser.add_argument('--m_in', required=False, type=float)
+    parser.add_argument('--m_out', required=False, type=float)
 
     args = parser.parse_args()
 
@@ -278,6 +277,22 @@ if __name__ == "__main__":
 
     config['mixed'] = False
 
+    if config['queue']:
+        pynvml.nvmlInit()
+        print("Waiting for suitable GPUs...")
+
+        required_gpus = 2
+        while True:
+            available_gpus = get_available_gpus(required_gpus=required_gpus)
+            if len(available_gpus) == required_gpus:
+                print(f"Running program on GPUs {available_gpus}...")
+                config['gpus'] = available_gpus
+                break
+            else:
+                sleep(random.randint(30, 90))
+
+        pynvml.nvmlShutdown()
+
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
 
@@ -285,6 +300,6 @@ if __name__ == "__main__":
         torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
-    dataroot = f"../data/{config['dataset']}"
+    dataroot = f"../data/{config['dataset']}"\
 
     train()

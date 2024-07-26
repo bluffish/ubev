@@ -35,8 +35,7 @@ def focal_loss(logits, target, weights=None, n=2):
     focal_term = (1 - pt + 1e-12) ** n
 
     loss = focal_term * ce
-
-    return loss
+    return loss.view(-1, 200, 200)
 
 
 def focal_loss_o(logits, target, weights=None, n=2):

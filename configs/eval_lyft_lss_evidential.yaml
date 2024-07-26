@@ -1,0 +1,8 @@
+type: 'evidential'
+backbone: 'lss'
+dataset: 'lyft'
+logdir: 'outputs/lyft/lss_evidential'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/lyft/lss_evidential/9.pt'
