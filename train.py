@@ -274,23 +274,18 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--batch_size', default=32, required=False, type=int)
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
     parser.add_argument('--num_workers', default=32, required=False, type=int)
-    parser.add_argument('-s', '--split', default='trainval', required=False, type=str)
-    parser.add_argument('-p', '--pretrained', required=False, type=str, help='Load pretrained model')
-    parser.add_argument('-o', '--ood', default=False, action='store_true')
-    parser.add_argument('-e', '--num_epochs', default=100, required=False, type=int)
-    parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
-    parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
+    
     parser.add_argument('--mixed', default=False, action='store_true', help='Use mixed percision')
 
     parser.add_argument('--seed', default=0, required=False, type=int)
     # Removed. Directly pass stable dataset name train_aug_stable and val_aug_stable with --train_set and --val_set instead.
     #parser.add_argument('--stable', default=False, action='store_true')
 
-    parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-p', '--pretrained', required=False, type=str, help='Load pretrained model')
     parser.add_argument('-o', '--ood', default=False, action='store_true')
-    parser.add_argument('-e', '--num_epochs', required=False, type=int)
-    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
-    parser.add_argument('-f', '--fast', default=False, action='store_true')
+    parser.add_argument('-e', '--num_epochs', default=100, required=False, type=int)
+    parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
+    parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
     
     parser.add_argument('--seed', default=0, required=False, type=int)
     parser.add_argument('--stable', default=False, action='store_true')
