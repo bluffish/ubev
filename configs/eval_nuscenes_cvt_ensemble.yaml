@@ -1,0 +1,8 @@
+type: 'ensemble'
+backbone: 'cvt'
+dataset: 'nuscenes'
+logdir: 'outputs/nuscenes/cvt_ensemble'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/cvt_ensemble/19.pt'

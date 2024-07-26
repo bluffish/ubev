@@ -48,7 +48,6 @@ class Evidential(Model):
         A *= 1 + (self.epistemic(alpha).detach() * self.k)
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
-
         A = A[~ood.bool()].mean()
 
         A += oreg
@@ -58,23 +57,11 @@ class Evidential(Model):
     def train_step_ood(self, images, intrinsics, extrinsics, labels, ood):
         self.opt.zero_grad(set_to_none=True)
 
-        if self.scaler is not None:
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
-                outs = self(images, intrinsics, extrinsics)
-                loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
-
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.opt)
-
-            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-            self.scaler.step(self.opt)
-            self.scaler.update()
-        else:
-            outs = self(images, intrinsics, extrinsics)
-            loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-            self.opt.step()
+        outs = self(images, intrinsics, extrinsics)
+        loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+        self.opt.step()
 
         preds = self.activate(outs)
         return outs, preds, loss, oodl

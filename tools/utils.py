@@ -1,15 +1,17 @@
 import os
 import re
+import subprocess
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
+import pynvml
 from tqdm import tqdm
 
 from datasets.carla import compile_data as compile_data_carla
 from datasets.nuscenes import compile_data as compile_data_nuscenes
+from datasets.lyft import compile_data as compile_data_lyft
 
 from models.baseline import Baseline
 from models.evidential import Evidential
@@ -18,6 +20,7 @@ from models.dropout import Dropout
 from models.postnet import Postnet
 from models.energy import Energy
 
+import cv2
 
 colors = torch.tensor([
     [0, 0, 255],
@@ -38,6 +41,7 @@ models = {
 datasets = {
     'nuscenes': compile_data_nuscenes,
     'carla': compile_data_carla,
+    'lyft': compile_data_lyft,
 }
 
 n_classes, classes = 2, ["vehicle", "background"]
@@ -160,4 +164,29 @@ def find_latest_model_pt_filename(folder):
         latest_pt_filename = f'{latest}.pt'
         return latest_pt_filename
     else:
+        return None
+
+def get_available_gpus(required_gpus=2):
+    username = os.getlogin()
+    available_gpus = []
+    device_count = pynvml.nvmlDeviceGetCount()
+
+    for i in range(device_count):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        compute_procs = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
+
+        user_procs = [proc for proc in compute_procs if get_username_from_pid(proc.pid) == username]
+        if not user_procs:
+            available_gpus.append(i)
+
+        if len(available_gpus) >= required_gpus:
+            break
+
+    return available_gpus[:required_gpus]
+
+def get_username_from_pid(pid):
+    try:
+        proc = subprocess.run(['ps', '-o', 'user=', '-p', str(pid)], capture_output=True, text=True)
+        return proc.stdout.strip()
+    except subprocess.CalledProcessError:
         return None

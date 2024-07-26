@@ -1,6 +1,7 @@
 import argparse
-from time import time
+from time import time, sleep
 import json
+import random
 
 from tensorboardX import SummaryWriter
 from tools.metrics import *
@@ -130,9 +131,10 @@ def train(config, resume=False):
         model.beta_lambda = config['beta']
         print(f"Beta lambda is {model.beta_lambda}")
 
-    if config['fast']:
-        model = torch.compile(model, mode="reduce-overhead", fullgraph=True)
-        print("Using torch.compile")
+    if 'm_in' in config:
+        model.m_in = config['m_in']
+    if 'm_out' in config:
+        model.m_out = config['m_out']
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -180,6 +182,7 @@ def train(config, resume=False):
 
                 if ood_loss is not None:
                     writer.add_scalar('train/ood_loss', ood_loss, step)
+                    writer.add_scalar('train/id_loss', loss-ood_loss, step)
 
                 if config['ood']:
                     save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'], "epistemic.png", "ood.png")
@@ -264,10 +267,8 @@ def train(config, resume=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('backbone', choices=['lss', 'cvt', 'fiery'], type=str)
-    parser.add_argument('type', choices=['baseline', 'evidential', 'dropout', 'postnet', 'ensemble', 'energy'], type=str)
-    parser.add_argument('dataset', choices=['nuscenes', 'carla'], type=str)
-
+    parser.add_argument("config")
+    parser.add_argument('-q', '--queue', default=False, action='store_true')
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', default=None, required=False, type=str)
     parser.add_argument('-b', '--batch_size', default=32, required=False, type=int)
@@ -285,19 +286,22 @@ if __name__ == "__main__":
     # Removed. Directly pass stable dataset name train_aug_stable and val_aug_stable with --train_set and --val_set instead.
     #parser.add_argument('--stable', default=False, action='store_true')
 
-    parser.add_argument('--weight_decay', default=0.0000001, required=False, type=float)
-    parser.add_argument('--learning_rate', default=0.01, required=False, type=float)
+    parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-o', '--ood', default=False, action='store_true')
+    parser.add_argument('-e', '--num_epochs', required=False, type=int)
+    parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
+    parser.add_argument('-f', '--fast', default=False, action='store_true')
+    
+    parser.add_argument('--seed', default=0, required=False, type=int)
+    parser.add_argument('--stable', default=False, action='store_true')
 
-    parser.add_argument('--loss', default='ce', choices=['ce', 'focal', 'al'], required=False, type=str)
-    parser.add_argument('--gamma', required=False, type=float)  # 0.1
-    parser.add_argument('--beta', required=False, type=float, help='Evidential beta')   # 0.0001
-    parser.add_argument('--ol', required=False, type=float, help='Evidential lambda')   # 0.1
-    parser.add_argument('--k', required=False, type=float, help='Evidential k')         # 64
-
-    parser.add_argument('--train_set', required=False, type=str)
-    parser.add_argument('--val_set', required=False, type=str)
-
-    parser.add_argument('--resume', default=False, action='store_true', help='Resume training from existing logdir. Do not use with --pretrained.')
+    parser.add_argument('--loss', default="ce", required=False, type=str)
+    parser.add_argument('--gamma', required=False, type=float)
+    parser.add_argument('--beta', required=False, type=float)
+    parser.add_argument('--ol', required=False, type=float)
+    parser.add_argument('--k', required=False, type=float)
+    parser.add_argument('--m_in', required=False, type=float)
+    parser.add_argument('--m_out', required=False, type=float)
 
     args = parser.parse_args()
 
@@ -312,6 +316,22 @@ if __name__ == "__main__":
 
     config['mixed'] = False
 
+    if config['queue']:
+        pynvml.nvmlInit()
+        print("Waiting for suitable GPUs...")
+
+        required_gpus = 2
+        while True:
+            available_gpus = get_available_gpus(required_gpus=required_gpus)
+            if len(available_gpus) == required_gpus:
+                print(f"Running program on GPUs {available_gpus}...")
+                config['gpus'] = available_gpus
+                break
+            else:
+                sleep(random.randint(30, 90))
+
+        pynvml.nvmlShutdown()
+
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
 
@@ -319,7 +339,7 @@ if __name__ == "__main__":
         torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
-    dataroot = f"../data/{config['dataset']}"
+    dataroot = f"../data/{config['dataset']}"\
 
     if 'logdir' not in config or config['logdir'] is None:
         logdir = f"outputs_th/{config['dataset']}/{config['pos_class']}/{config['backbone']}_{config['type']}/{config['loss']}"

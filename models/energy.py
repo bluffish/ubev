@@ -6,8 +6,8 @@ from tools.uncertainty import *
 class Energy(Model):
     def __init__(self, *args, **kwargs):
         super(Energy, self).__init__(*args, **kwargs)
-        self.m_in = -5.0
-        self.m_out = -23.0
+        self.m_in = -23.0
+        self.m_out = -5.0
         self.lambd = 0.1
 
     @staticmethod

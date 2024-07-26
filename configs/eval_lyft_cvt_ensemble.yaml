@@ -1,0 +1,8 @@
+type: 'ensemble'
+backbone: 'cvt'
+dataset: 'lyft'
+logdir: 'outputs/lyft/cvt_ensemble'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/lyft/cvt_ensemble/9.pt'

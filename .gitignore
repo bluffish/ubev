@@ -13,9 +13,8 @@ outputs
 outputs_bin
 outputs_th
 test
-
+build
+dist
+mmdet*
 *.npy
 *.pt
-
-cache/
-plots/

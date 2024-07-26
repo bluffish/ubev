@@ -154,7 +154,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         g = torch.Generator()
         g.manual_seed(seed)
 
-        sampler = torch.utils.data.RandomSampler(data, num_samples=128, generator=g)
+        sampler = torch.utils.data.RandomSampler(data, num_samples=256, generator=g)
 
         loader = torch.utils.data.DataLoader(
             data,
