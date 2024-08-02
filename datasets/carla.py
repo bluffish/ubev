@@ -5,22 +5,69 @@ import random
 
 import torchvision
 from torch.utils.data import Subset
+from torchvision.transforms.functional import center_crop
 
 from tools.geometry import *
 
+def split_path_into_folders(path):
+    folders = []
+    while True:
+        path, folder = os.path.split(path)
+        if folder:
+            folders.append(folder)
+        else:
+            if path:
+                folders.append(path)
+            break
+    folders.reverse()
+    return folders
+
+def get_intrinsics(image_size_x, image_size_y, fov):
+    intrinsics = np.identity(3)
+    intrinsics[0, 2] = image_size_x / 2.0
+    intrinsics[1, 2] = image_size_y / 2.0
+    intrinsics[0, 0] = intrinsics[1, 1] = image_size_x / (
+            2.0 * np.tan(fov * np.pi / 360.0))
+
+    return intrinsics
+
+def nn_resample(img, shape):
+    def per_axis(in_sz, out_sz):
+        ratio = 0.5 * in_sz / out_sz
+        return np.round(np.linspace(ratio - 0.5, in_sz - ratio - 0.5, num=out_sz)).astype(int)
+
+    return img[per_axis(img.shape[0], shape[0])[:, None],
+               per_axis(img.shape[1], shape[1])]
 
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, is_train, pos_class):
+    def __init__(self, data_path, is_train, pos_class, pseudo=False, map_uncertainty=False):
         self.is_train = is_train
         self.return_info = False
         self.pos_class = pos_class
+        self.pseudo = pseudo
+        self.map_uncertainty = map_uncertainty
 
         self.data_path = data_path
 
         self.mode = 'train' if self.is_train else 'val'
 
-        self.vehicles = len(os.listdir(os.path.join(self.data_path, 'agents')))
-        self.ticks = len(os.listdir(os.path.join(self.data_path, 'agents/0/back_camera')))
+        self.data = []
+
+        agent_folders = []
+        for dirpath, dirnames, filenames in os.walk(self.data_path):
+            if 'sensors.json' in filenames:
+                agent_folders.append(dirpath)
+
+        for agent_path in agent_folders:
+            if not os.path.exists(os.path.join(agent_path, 'bev_mapping')):
+                continue
+            splitted_path = split_path_into_folders(agent_path)
+            agent_id = splitted_path[-1]
+            town_name = splitted_path[-3]
+            for filename in os.listdir(os.path.join(agent_path, 'front_camera')):
+                frame = int(filename.split('.png')[0])
+                self.data.append((agent_path, agent_id, frame))
+
         self.offset = 0
 
         self.to_tensor = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
@@ -43,9 +90,18 @@ class CarlaDataset(torch.utils.data.Dataset):
 
         for sensor_name, sensor_info in sensors['sensors'].items():
             if sensor_info["sensor_type"] == "sensor.camera.rgb" and sensor_name != "birds_view_camera":
-                image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
+                image = Image.open(os.path.join(agent_path, sensor_name, f'{index}.png'))
+                if image.size != (480, 224):
+                    # 1600*900 -> 1600*747 -> 480*224
+                    orig_w, orig_h = image.size
+                    assert (orig_w / orig_h) <= (480 / 224) # Only when we didn't change horizontal FOV we can calculate intrinsic correctly.
+                    image = center_crop(image, (480 / orig_w * orig_h, orig_w))
+                    image =  image.resize((480, 224), Image.Resampling.BILINEAR)
 
-                intrinsic = torch.tensor(sensor_info["intrinsic"])
+                # intrinsic = torch.tensor(sensor_info["intrinsic"])
+                sensor_options = sensor_info['sensor_options'] # width and height are in sensor_options['image_size_x'] and sensor_options['image_size_y']
+                
+                intrinsic = get_intrinsics(480, 224, sensor_options["fov"]).astype(np.float32)
                 translation = np.array(sensor_info["transform"]["location"])
                 rotation = sensor_info["transform"]["rotation"]
 
@@ -62,7 +118,7 @@ class CarlaDataset(torch.utils.data.Dataset):
                 normalized_image = self.to_tensor(image)
 
                 images.append(normalized_image)
-                intrinsics.append(intrinsic)
+                intrinsics.append(torch.tensor(intrinsic))
                 extrinsics.append(torch.tensor(extrinsic))
                 image.close()
 
@@ -73,9 +129,20 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics
 
     def get_label(self, index, agent_path):
-        label_r = Image.open(os.path.join(agent_path + "bev_semantic", f'{index}.png'))
+        # label_r = Image.open(os.path.join(agent_path, "bev_semantic", f'{index}.png'))
+        label_r = Image.open(os.path.join(agent_path, "birds_view_semantic_camera", f'{index}.png'))
+        if label_r.size != (200, 200):
+            label_r =  label_r.resize((200, 200), Image.Resampling.NEAREST)
+
         label = np.array(label_r)
         label_r.close()
+
+        if self.map_uncertainty:
+            mapped_epistemic = np.load(os.path.join(agent_path, "bev_mapping_epistemic", f'{index}.npy'))
+            if mapped_epistemic.shape != (200, 200):
+                mapped_epistemic =  nn_resample(mapped_epistemic, (200, 200))
+        else:
+            mapped_epistemic = None
 
         empty = np.ones(self.bev_dimension[:2])
 
@@ -87,7 +154,8 @@ class CarlaDataset(torch.utils.data.Dataset):
             lane = mask(label, (50, 234, 157))
             vehicles = mask(label, (142, 0, 0))
 
-        ood = mask(label, (0, 0, 0))
+        # ood = mask(label, (0, 0, 0))
+        ood = mask(label, (50, 100, 144))
         bounding_boxes = find_bounding_boxes(ood)
         ood = draw_bounding_boxes(bounding_boxes)
 
@@ -120,31 +188,31 @@ class CarlaDataset(torch.utils.data.Dataset):
             empty[road == 1] = 0
             label = np.stack((vehicles, road, lane, empty))
 
-        return label, ood[None]
+        return label, ood[None], mapped_epistemic
 
     def __len__(self):
-        return self.ticks * self.vehicles
+        return len(self.data)
 
-    def __getitem__(self, index):
-        agent_number = math.floor(index / self.ticks)
-        agent_path = os.path.join(self.data_path, f"agents/{agent_number}/")
-        index = (index + self.offset) % self.ticks
+    def __getitem__(self, idx):
+        agent_path, agent_id, index = self.data[idx]
 
         images, intrinsics, extrinsics = self.get_input_data(index, agent_path)
-        labels, ood = self.get_label(index, agent_path)
+        labels, ood, mapped_epistemic = self.get_label(index, agent_path)
 
         if self.return_info:
             return images, intrinsics, extrinsics, labels, ood, {
-                'agent_number': agent_number,
+                'agent_number': agent_id,
                 'agent_path': agent_path,
                 'index': index
             }
 
-        return images, intrinsics, extrinsics, labels, ood
+        if self.map_uncertainty:
+            return images, intrinsics, extrinsics, labels, ood, mapped_epistemic
+        else:
+            return images, intrinsics, extrinsics, labels, ood
 
-
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1):
-    data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, **kwargs):
+    data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class, **kwargs)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)

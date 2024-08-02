@@ -107,6 +107,22 @@ def ood_reg(alpha, ood):
 
     return reg[ood.bool()].mean()
 
+def ood_reg_topk(alpha, mapped_uncertainty, thres=0.5):
+    ood = (mapped_uncertainty > thres)
+    if ood.long().sum() == 0:
+        return 0
+    if len(alpha.shape) == 4:
+        alpha = alpha.permute(0, 2, 3, 1)
+    elif len(alpha.shape) == 3:
+        alpha = alpha.permute(0, 2, 1)
+
+    alpha_d = D.Dirichlet(alpha)
+    target_d = D.Dirichlet(torch.ones_like(alpha))
+
+    reg = D.kl.kl_divergence(alpha_d, target_d)
+
+    # directly return mean since in topk mode we already did the filtering
+    return reg[ood.bool()].mean()
 
 def gamma(x):
     return torch.exp(torch.lgamma(x))

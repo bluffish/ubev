@@ -1,7 +1,7 @@
-type: 'evidential'
+type: 'evidential_topk'
 backbone: 'lss'
 dataset: 'carla'
-logdir: 'outputs/carla/lss_evidential'
+logdir: 'outputs/carla/lss_evidential_topk'
 batch_size: 32
 num_workers: 32
 weight_decay: 0.0000001

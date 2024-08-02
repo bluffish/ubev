@@ -29,9 +29,12 @@ def train(config, resume=False):
         if config['stable']:
             train_set = "train_aug_stable"
             val_set = "val_aug_stable"
-        else:
+        elif config['comb']:
             train_set = "train_comb"
             val_set = "val_comb"
+        else:
+            train_set = "train"
+            val_set = "val"
     else:
         train_set = "train"
         val_set = "val"
@@ -46,22 +49,26 @@ def train(config, resume=False):
     elif config['backbone'] == 'cvt':
         yaw = 180
 
+    map_uncertainty = config['type'].endswith('_topk')
+
     train_loader = datasets[config['dataset']](
-        config['train_set'], split, dataroot, config['pos_class'],
+        train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=True,
         seed=config['seed'],
-        yaw=yaw
+        yaw=yaw,
+        map_uncertainty=map_uncertainty,
     )
 
     val_loader = datasets[config['dataset']](
-        config['val_set'], split, dataroot, config['pos_class'],
+        val_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         is_train=False,
         seed=config['seed'],
-        yaw=yaw
+        yaw=yaw,
+        map_uncertainty=map_uncertainty,
     )
 
     model = models[config['type']](
@@ -140,9 +147,11 @@ def train(config, resume=False):
     print(f"Using GPUS: {config['gpus']}")
     print(f"Train loader: {len(train_loader.dataset)}")
     print(f"Val loader: {len(val_loader.dataset)}")
+    print(f"Train set: {train_set} Val set: {val_set}")
     print(f"Batch size: {config['batch_size']}")
     print(f"Output directory: {config['logdir']} ")
     print(f"Using loss {config['loss']}")
+    print(f"Use mapped uncertainty as regularization: {map_uncertainty}")
     print("--------------------------------------------------")
 
     writer = SummaryWriter(logdir=config['logdir'])
@@ -160,12 +169,19 @@ def train(config, resume=False):
 
         writer.add_scalar('train/epoch', epoch, step)
 
-        for images, intrinsics, extrinsics, labels, ood in train_loader:
+        for data in train_loader:
+            if map_uncertainty:
+                images, intrinsics, extrinsics, labels, ood, mapped_uncertainty = data
+            else:
+                images, intrinsics, extrinsics, labels, ood = data
             t_0 = time()
             ood_loss = None
 
             if config['ood']:
-                outs, preds, loss, ood_loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
+                if map_uncertainty:
+                    outs, preds, loss, ood_loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood, mapped_uncertainty)
+                else:
+                    outs, preds, loss, ood_loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
                 outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
@@ -198,7 +214,10 @@ def train(config, resume=False):
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader)
+        if map_uncertainty:
+            predictions, ground_truth, oods, aleatoric, epistemic, raw, mapped_uncertainty = run_loader(model, val_loader, map_uncertainty=map_uncertainty)
+        else:
+            predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader, map_uncertainty=map_uncertainty)
         iou = get_iou(predictions, ground_truth)
 
         for i in range(0, n_classes):
@@ -217,8 +236,13 @@ def train(config, resume=False):
                 raw_batch = raw[i:i + config['batch_size']].to(model.device)
                 ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
                 oods_batch = oods[i:i + config['batch_size']].to(model.device)
+                if map_uncertainty:
+                    mapped_uncertainty_batch = mapped_uncertainty[i:i + config['batch_size']].to(model.device)
 
-                vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+                if map_uncertainty:
+                    vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch, mapped_uncertainty_batch)
+                else:
+                    vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
 
                 val_loss += vl
                 ood_loss += ol
@@ -238,6 +262,12 @@ def train(config, resume=False):
             writer.add_scalar(f"val/ood_aupr", aupr, epoch)
 
             print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}")
+
+            if map_uncertainty:
+                fpr, tpr, rec, pr, auroc, aupr, _ = roc_pr(mapped_uncertainty[:256].squeeze(1), uncertainty_labels)
+                writer.add_scalar(f"val/mapped_ood_auroc", auroc, epoch)
+                writer.add_scalar(f"val/mapped_ood_aupr", aupr, epoch)
+
         else:
             n_samples = len(raw)
             val_loss = 0
@@ -282,15 +312,15 @@ if __name__ == "__main__":
     #parser.add_argument('--stable', default=False, action='store_true')
 
     parser.add_argument('-p', '--pretrained', required=False, type=str, help='Load pretrained model')
+    parser.add_argument('--resume', default=False, action='store_true', help='Resume from existing checkpoint')
     parser.add_argument('-o', '--ood', default=False, action='store_true')
+    parser.add_argument('--stable', default=False, action='store_true', help='Use stable diffusion pseudo OOD set')
+    parser.add_argument('--comb', default=False, action='store_true', help='Use comb OOD set') # for neuroips submission
     parser.add_argument('-e', '--num_epochs', default=100, required=False, type=int)
     parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
     parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
-    
-    parser.add_argument('--seed', default=0, required=False, type=int)
-    parser.add_argument('--stable', default=False, action='store_true')
 
-    parser.add_argument('--loss', default="ce", required=False, type=str)
+    parser.add_argument('--loss', required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
     parser.add_argument('--beta', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
@@ -300,11 +330,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = {}
-
-    for key, value in vars(args).items():
-        if value is not None:
-            config[key] = value
+    print(f'Using config {args.config}')
+    config = get_config(args)
 
     torch.manual_seed(config['seed'])
     np.random.seed(config['seed'])
@@ -334,7 +361,9 @@ if __name__ == "__main__":
         torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
-    dataroot = f"../data/{config['dataset']}"\
+    # dataroot = f"../data/{config['dataset']}"
+
+    dataroot = f"../../Datasets/{config['dataset']}"
 
     if 'logdir' not in config or config['logdir'] is None:
         logdir = f"outputs_th/{config['dataset']}/{config['pos_class']}/{config['backbone']}_{config['type']}/{config['loss']}"

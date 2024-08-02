@@ -15,6 +15,7 @@ from datasets.lyft import compile_data as compile_data_lyft
 
 from models.baseline import Baseline
 from models.evidential import Evidential
+from models.evidential_topk import EvidentialTopK
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.postnet import Postnet
@@ -32,6 +33,7 @@ colors = torch.tensor([
 models = {
     'baseline': Baseline,
     'evidential': Evidential,
+    'evidential_topk': EvidentialTopK,
     'ensemble': Ensemble,
     'dropout': Dropout,
     'postnet': Postnet,
@@ -70,16 +72,21 @@ def change_params(config):
 
 
 @torch.no_grad()
-def run_loader(model, loader):
+def run_loader(model, loader, map_uncertainty=False):
     predictions = []
     ground_truth = []
     oods = []
     aleatoric = []
     epistemic = []
     raw = []
+    mapped_uncertainties = []
 
     with torch.no_grad():
-        for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
+        for data in tqdm(loader, desc="Running validation"):
+            if map_uncertainty:
+                images, intrinsics, extrinsics, labels, ood, mapped_uncertainty = data
+            else:
+                images, intrinsics, extrinsics, labels, ood = data
             outs = model(images, intrinsics, extrinsics).detach().cpu()
 
             predictions.append(model.activate(outs))
@@ -88,13 +95,24 @@ def run_loader(model, loader):
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
             raw.append(outs)
+            if map_uncertainty:
+                mapped_uncertainties.append(mapped_uncertainty)
 
-    return (torch.cat(predictions, dim=0),
-            torch.cat(ground_truth, dim=0),
-            torch.cat(oods, dim=0),
-            torch.cat(aleatoric, dim=0),
-            torch.cat(epistemic, dim=0),
-            torch.cat(raw, dim=0))
+    if map_uncertainty:
+        return (torch.cat(predictions, dim=0),
+                torch.cat(ground_truth, dim=0),
+                torch.cat(oods, dim=0),
+                torch.cat(aleatoric, dim=0),
+                torch.cat(epistemic, dim=0),
+                torch.cat(raw, dim=0),
+                torch.cat(mapped_uncertainties, dim=0))
+    else:
+        return (torch.cat(predictions, dim=0),
+                    torch.cat(ground_truth, dim=0),
+                    torch.cat(oods, dim=0),
+                    torch.cat(aleatoric, dim=0),
+                    torch.cat(epistemic, dim=0),
+                    torch.cat(raw, dim=0))
 
 
 def map_rgb(onehot, ego=False):
