@@ -16,6 +16,7 @@ from datasets.lyft import compile_data as compile_data_lyft
 from models.baseline import Baseline
 from models.evidential import Evidential
 from models.evidential_topk import EvidentialTopK
+from models.evidential_noreg import EvidentialNoReg
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.postnet import Postnet
@@ -34,6 +35,7 @@ models = {
     'baseline': Baseline,
     'evidential': Evidential,
     'evidential_topk': EvidentialTopK,
+    'evidential_noreg': EvidentialNoReg,
     'ensemble': Ensemble,
     'dropout': Dropout,
     'postnet': Postnet,
