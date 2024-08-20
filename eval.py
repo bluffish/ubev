@@ -160,10 +160,12 @@ if __name__ == "__main__":
     mis_graph, mis_auroc, mis_aupr = plot_roc_pr(aleatoric, mis, title="Misc ROC & PR", exclude=oods)
     ood_graph, ood_auroc, ood_aupr = plot_roc_pr(epistemic, oods, title="OOD ROC & PR")
     ece_graph, ece = plot_ece(preds, labels, exclude=oods)
+    fpr95 = fpr_at_95_tpr(epistemic, oods)
 
     print(f"IOU: {iou}, Brier: {brier:.5f}, ECE: {ece:.5f}")
     print(f"Mis AUROC={mis_auroc:.5f}, AUPR={mis_aupr:.5f}")
     print(f"OOD AUROC={ood_auroc:.5f}, AUPR={ood_aupr:.5f}")
+    print(f"fpr95={fpr95:.5f}")
 
     mis_graph.savefig(os.path.join(config['logdir'], "roc_pr_mis.png"))
     ood_graph.savefig(os.path.join(config['logdir'], "roc_pr_ood.png"))
@@ -172,5 +174,17 @@ if __name__ == "__main__":
 
     ece_graph.savefig(os.path.join(config['logdir'], "ece_calib.png"))
     ece_graph.savefig(os.path.join(config['logdir'], "ece_calib.pdf"), format="pdf")
+
+    with open(os.path.join(config['logdir'], "metrics.json"), 'w') as f:
+        json.dump({
+            "iou": iou,
+            "brier": float(brier),
+            "ece": float(ece),
+            "mis_auroc": float(mis_auroc),
+            "mis_aupr": float(mis_aupr),
+            "ood_auroc": float(ood_auroc),
+            "ood_aupr": float(ood_aupr),
+            "fpr95": float(fpr95),
+        }, f, indent=4)
 
     print(f"Graphs saved to {config['logdir']}")

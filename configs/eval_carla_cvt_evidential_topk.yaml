@@ -1,0 +1,8 @@
+type: 'evidential_topk'
+backbone: 'cvt'
+dataset: 'carla'
+logdir: 'outputs/carla/cvt_evidential_topk'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/cvt_evidential_topk/19.pt'

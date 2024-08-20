@@ -213,3 +213,28 @@ def brier_score(y_pred, y_true, exclude=None):
         brier = brier[~exclude.repeat(1, y_pred.shape[1], 1, 1)]
 
     return brier.mean()
+
+# Adopted from https://github.com/tayden/ood-metrics/blob/2e706e7dfef7d748e8e8eb88371c88deb3f92267/ood_metrics/metrics.py#L37
+def fpr_at_95_tpr(preds, oods, exclude=None):
+    """Return the FPR when TPR is at minimum 95%.
+        
+    preds: array, shape = [*]
+           Target normality scores, can either be probability estimates of the positive class, confidence values, or non-thresholded measure of decisions.
+           i.e.: an high value means sample predicted "normal", belonging to the positive class
+           
+    oods: array, shape = [*]
+            True boolean binary labels.
+    """
+    fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(preds, oods, exclude=None)
+    # fpr, tpr, _ = roc_curve(labels, preds, pos_label=pos_label)
+
+    if all(tpr < 0.95):
+        # No threshold allows TPR >= 0.95
+        return 0
+    elif all(tpr >= 0.95):
+        # All thresholds allow TPR >= 0.95, so find lowest possible FPR
+        idxs = [i for i, x in enumerate(tpr) if x >= 0.95]
+        return min(map(lambda idx: fpr[idx], idxs))
+    else:
+        # Linear interp between values to get FPR at TPR == 0.95
+        return np.interp(0.95, tpr, fpr)
