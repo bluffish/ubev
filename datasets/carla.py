@@ -59,7 +59,7 @@ class CarlaDataset(torch.utils.data.Dataset):
                 agent_folders.append(dirpath)
 
         for agent_path in agent_folders:
-            if not os.path.exists(os.path.join(agent_path, 'bev_mapping')):
+            if map_uncertainty and not os.path.exists(os.path.join(agent_path, 'bev_mapping')):
                 continue
             splitted_path = split_path_into_folders(agent_path)
             agent_id = splitted_path[-1]
