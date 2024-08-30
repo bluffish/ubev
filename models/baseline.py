@@ -8,7 +8,7 @@ class Baseline(Model):
 
         self.m_in = -23.0
         self.m_out = -5.0
-        self.ood_lambda = 0.1
+        self.ood_lambda = 0.01
 
     @staticmethod
     def aleatoric(logits, mode='entropy'):

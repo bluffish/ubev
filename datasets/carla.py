@@ -150,9 +150,9 @@ class CarlaDataset(torch.utils.data.Dataset):
         lane = mask(label, (157, 234, 50))
         vehicles = mask(label, (0, 0, 142))
 
-        if np.sum(vehicles) < 5:
-            lane = mask(label, (50, 234, 157))
-            vehicles = mask(label, (142, 0, 0))
+        # if np.sum(vehicles) < 5:
+        #     lane = mask(label, (50, 234, 157))
+        #     vehicles = mask(label, (142, 0, 0))
 
         # ood = mask(label, (0, 0, 0))
         ood = mask(label, (50, 100, 144))

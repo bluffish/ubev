@@ -321,10 +321,10 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
 
     parser.add_argument('--loss', required=False, type=str)
-    parser.add_argument('--gamma', required=False, type=float)
+    parser.add_argument('--gamma', required=False, type=float)  # 0.5
     parser.add_argument('--beta', required=False, type=float)
-    parser.add_argument('--ol', required=False, type=float)
-    parser.add_argument('--k', required=False, type=float)
+    parser.add_argument('--ol', required=False, type=float)     # 0.01
+    parser.add_argument('--k', required=False, type=float)      # 64
     parser.add_argument('--m_in', required=False, type=float)
     parser.add_argument('--m_out', required=False, type=float)
 
