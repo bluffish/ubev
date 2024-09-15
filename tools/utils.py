@@ -76,14 +76,14 @@ def run_loader(model, loader):
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
-            outs = model(images, intrinsics, extrinsics).detach().cpu()
+            outs = model(images, intrinsics, extrinsics).detach()
 
-            predictions.append(model.activate(outs))
-            ground_truth.append(labels)
-            oods.append(ood)
-            aleatoric.append(model.aleatoric(outs))
-            epistemic.append(model.epistemic(outs))
-            raw.append(outs)
+            predictions.append(model.activate(outs).cpu())
+            ground_truth.append(labels.cpu())
+            oods.append(ood.cpu())
+            aleatoric.append(model.aleatoric(outs).cpu())
+            epistemic.append(model.epistemic(outs).cpu())
+            raw.append(outs.cpu())
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truth, dim=0),

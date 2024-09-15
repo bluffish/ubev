@@ -15,8 +15,6 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
 
-print(torch.__version__)
-
 
 def train():
     classes, n_classes, weights = change_params(config)
@@ -40,10 +38,22 @@ def train():
     if 'val_set' in config:
         val_set = config['val_set']
 
-    if config['backbone'] == 'lss':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
+
+    true_ood = None
+    if 'true_ood' in config:
+        true_ood = config['true_ood']
+
+    model = models[config['type']](
+        config['gpus'],
+        backbone=config['backbone'],
+        n_classes=n_classes,
+        loss_type=config['loss'],
+        weights=weights
+    )
 
     train_loader = datasets[config['dataset']](
         train_set, split, dataroot, config['pos_class'],
@@ -51,7 +61,8 @@ def train():
         num_workers=config['num_workers'],
         is_train=True,
         seed=config['seed'],
-        yaw=yaw
+        yaw=yaw,
+        true_ood=true_ood
     )
 
     val_loader = datasets[config['dataset']](
@@ -60,15 +71,8 @@ def train():
         num_workers=config['num_workers'],
         is_train=False,
         seed=config['seed'],
-        yaw=yaw
-    )
-
-    model = models[config['type']](
-        config['gpus'],
-        backbone=config['backbone'],
-        n_classes=n_classes,
-        loss_type=config['loss'],
-        weights=weights
+        yaw=yaw,
+        true_ood=true_ood
     )
 
     model.opt = torch.optim.Adam(
@@ -208,11 +212,12 @@ def train():
             uncertainty_scores = epistemic[:256].squeeze(1)
             uncertainty_labels = oods[:256].bool()
 
-            fpr, tpr, rec, pr, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
+            fpr, tpr, rec, pr, auroc, aupr, _, fpr95 = roc_pr(uncertainty_scores, uncertainty_labels)
             writer.add_scalar(f"val/ood_auroc", auroc, epoch)
             writer.add_scalar(f"val/ood_aupr", aupr, epoch)
+            writer.add_scalar(f"val/ood_fpr95", fpr95, epoch)
 
-            print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}")
+            print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}, FPR95={fpr95}")
         else:
             n_samples = len(raw)
             val_loss = 0
@@ -266,6 +271,8 @@ if __name__ == "__main__":
     parser.add_argument('--k', required=False, type=float)
     parser.add_argument('--m_in', required=False, type=float)
     parser.add_argument('--m_out', required=False, type=float)
+
+    parser.add_argument('--true_ood', nargs='+', required=False, type=str)
 
     args = parser.parse_args()
 

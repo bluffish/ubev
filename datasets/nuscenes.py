@@ -35,7 +35,7 @@ VAL_LYFT_INDICES = [0, 2, 4, 13, 22, 25, 26, 34, 38, 40, 42, 54, 57,
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180):
+    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None):
         self.ind = ind
         self.ood = ood
         self.pseudo = pseudo
@@ -53,11 +53,16 @@ class NuScenesDataset(torch.utils.data.Dataset):
             self.pseudo_ood = ["bicycle"]
             self.true_ood = ["motorcycle"]
         else:
-            self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack"]
+            # self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack", "vehicle.motorcycle"]
+            # self.pseudo_ood = ["vehicle.motorcycle"]
+            self.pseudo_ood = ["static_object.bicycle_rack", "vehicle.bicycle"]
             self.true_ood = ["vehicle.motorcycle"]
 
-        self.all_ood = self.true_ood + self.pseudo_ood
+        if true_ood is not None:
+            self.true_ood = true_ood
 
+        self.all_ood = self.true_ood + self.pseudo_ood
+        print(self.pseudo_ood, self.true_ood)
         self.nusc = nusc
         self.is_train = is_train
 
@@ -116,7 +121,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
         records = []
-
+        id = 0
+        po = 0
+        to = 0
         for rec in samples:
             ego_pose = self.nusc.get('ego_pose', self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])['ego_pose_token'])
             ego_coord = ego_pose['translation']
@@ -137,9 +144,13 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
                 if inst['category_name'] in self.true_ood:
                     is_true_ood = True
-
+                    
                 if inst['category_name'] in self.pseudo_ood:
                     is_pseudo_ood = True
+                    
+            if is_true_ood: to+=1
+            if is_pseudo_ood: po+=1
+            if not is_true_ood and not is_pseudo_ood: id+=1
 
             if self.ind and not is_pseudo_ood and not is_true_ood:
                 records.append(rec)
@@ -147,7 +158,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 records.append(rec)
             if self.pseudo and is_pseudo_ood:
                 records.append(rec)
-
+        print(id, po, to)
         return records
 
         # return samples
@@ -334,7 +345,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None):
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":
@@ -362,7 +373,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
 
     nusc, dataroot = get_nusc("trainval", dataroot)
 
-    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw)
+    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)

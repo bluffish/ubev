@@ -1,0 +1,16 @@
+Using config ./configs/eval_nuscenes_lss_evidential.yaml
+{'type': 'evidential', 'backbone': 'lss', 'dataset': 'nuscenes', 'logdir': 'outputs/nuscenes/lss_evidential', 'gpus': [0, 1], 'batch_size': 8, 'num_workers': 32, 'pretrained': './outputs_bin/nuscenes/barrier/lss_ufocal_gamma=.5_ol=.01_k=64/19.pt', 'config': './configs/eval_nuscenes_lss_evidential.yaml', 'pos_class': 'vehicle', 'true_ood': ['movable_object.barrier']}
+['static_object.bicycle_rack', 'vehicle.bicycle'] ['movable_object.barrier']
+Using set: ood
+Loaded pretrained weights for efficientnet-b0
+BETA LAMBDA: 0.001
+--------------------------------------------------
+Running eval on mini
+Using GPUS: [0, 1]
+Loader: 1789
+Batch size: 8
+Output directory: outputs/nuscenes/lss_evidential 
+Pretrained: ./outputs_bin/nuscenes/barrier/lss_ufocal_gamma=.5_ol=.01_k=64/19.pt 
+--------------------------------------------------
+OOD Fraction tensor(0.0032934570, dtype=torch.float64)
+IDT Fraction tensor(0.0203839844, dtype=torch.float64)

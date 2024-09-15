@@ -87,7 +87,7 @@ class CarlaDataset(torch.utils.data.Dataset):
             lane = mask(label, (50, 234, 157))
             vehicles = mask(label, (142, 0, 0))
 
-        ood = mask(label, (0, 0, 0))
+        ood = mask(label, (0, 0, 0)) | mask(label, (50, 100, 144))
         bounding_boxes = find_bounding_boxes(ood)
         ood = draw_bounding_boxes(bounding_boxes)
 
@@ -143,7 +143,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, true_ood=None):
     data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
     random.seed(seed)
     torch.cuda.manual_seed(seed)

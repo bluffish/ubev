@@ -79,7 +79,7 @@ def plot_ece(preds, labels, title=None, exclude=None, n_bins=20, ax=None):
 
 
 def plot_roc_pr(y_score, y_true, title=None, exclude=None, axs=None):
-    fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(y_score, y_true, exclude=exclude)
+    fpr, tpr, rec, pr, auroc, aupr, no_skill, fpr95 = roc_pr(y_score, y_true, exclude=exclude)
 
     if axs is None:
         gen_new = True
@@ -95,9 +95,9 @@ def plot_roc_pr(y_score, y_true, title=None, exclude=None, axs=None):
             fig.suptitle(title)
         fig.tight_layout()
 
-        return fig, auroc, aupr
+        return fig, auroc, aupr, fpr95
     else:
-        return auroc, aupr
+        return auroc, aupr, fpr95
 
 
 def plot_roc(ax, fpr, tpr, auroc):

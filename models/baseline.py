@@ -10,6 +10,8 @@ class Baseline(Model):
         self.m_out = -5.0
         self.ood_lambda = 0.1
 
+        self.ep_mode = 'energy'
+
     @staticmethod
     def aleatoric(logits, mode='entropy'):
         if mode == 'aleatoric':
@@ -19,13 +21,12 @@ class Baseline(Model):
         elif mode == 'entropy':
             return entropy(logits, dim=1)
 
-    @staticmethod
-    def epistemic(logits, mode='energy', T=1.0):
-        if mode == 'energy':
+    def epistemic(self, logits, T=1.0):
+        if self.ep_mode == 'energy':
             energy = -T * torch.logsumexp(logits/T, dim=1)
             norm = (energy - energy.min()) / (energy.max() - energy.min())
             return norm.unsqueeze(1)
-        elif mode == 'entropy':
+        elif self.ep_mode == 'entropy':
             return entropy(logits)
 
     @staticmethod

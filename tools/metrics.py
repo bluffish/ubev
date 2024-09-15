@@ -30,7 +30,17 @@ def bin_predictions(y_score, y_true, n_bins=10):
     return acc_binned, conf_binned, bin_cardinalities
 
 
-def expected_calibration_error(pred, label, exclude=None, n_bins=10):
+def expected_calibration_error(pred, label, exclude=None, n_bins=10, min_dist=-1):
+
+    if min_dist > -1:
+        y, x = torch.meshgrid(torch.arange(200), torch.arange(200), indexing='ij')
+        center = 100
+        distances = torch.sqrt((x - center) ** 2 + (y - center) ** 2)
+        mask = distances > min_dist * 2 # multiply by 2 to convert to meters
+
+        pred *= mask
+        label *= mask
+
     y_score = pred.permute(0, 2, 3, 1).reshape(-1, pred.shape[1])
     y_true = label.permute(0, 2, 3, 1).reshape(-1, label.shape[1])
 
@@ -66,7 +76,6 @@ def get_iou(preds, labels, exclude=None):
             union = (p | l).sum().float().item()
             iou[i] = intersect / union if union > 0 else 0
     return iou
-
 
 def unc_iou(y_score, y_true, thresh=.5):
     pred = (y_score > thresh).bool()
@@ -163,15 +172,28 @@ def roc_pr(uncertainty_scores, uncertainty_labels, exclude=None):
         y_true = y_true[include]
         y_score = y_score[include]
 
-    pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
-    fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
+    pr, rec, _ = precision_recall_curve(y_true, y_score, drop_intermediate=True)
+    fpr, tpr, tr = roc_curve(y_true, y_score, drop_intermediate=True)
 
     auroc = auc(fpr, tpr)
     aupr = average_precision_score(y_true, y_score)
 
     no_skill = np.sum(y_true) / len(y_true)
 
-    return fpr, tpr, rec, pr, auroc, aupr, no_skill
+
+    r_fpr, r_tpr, _ = roc_curve(y_true, 1-y_score, drop_intermediate=True, pos_label=0)
+
+    if all(r_tpr < 0.95):
+        # No threshold allows TPR >= 0.95
+        fpr95 = 0
+    elif all(r_tpr >= 0.95):
+        # All thresholds allow TPR >= 0.95, so find lowest possible FPR
+        idxs = [i for i, x in enumerate(r_tpr) if x >= 0.95]
+        fpr95 = min(map(lambda idx: r_fpr[idx], idxs))
+    else:
+        fpr95 = np.interp(0.95, r_tpr, r_fpr)
+
+    return fpr, tpr, rec, pr, auroc, aupr, no_skill, fpr95
 
 
 def ece_score(y_pred, y_true, n_bins=10, exclude=None):
@@ -195,3 +217,44 @@ def brier_score(y_pred, y_true, exclude=None):
         brier = brier[~exclude.repeat(1, y_pred.shape[1], 1, 1)]
 
     return brier.mean()
+
+
+def accuracy_rejection_curve(preds, labels, uncs, n_bins=100):
+    preds = preds.argmax(dim=1).flatten()
+    labels = labels.argmax(dim=1).flatten()
+    uncs = uncs.flatten()
+
+    sort_idx = uncs.argsort()
+
+    uncs = uncs[sort_idx]
+    preds = preds[sort_idx]
+    labels = labels[sort_idx]
+
+    N = len(uncs)
+
+    bin_idxs = (torch.linspace(0, 1, n_bins) * N).int()
+    bin_idxs[-1] = N - 1
+
+    ious = []
+
+    for i in range(n_bins):
+        idx = bin_idxs[i]
+        iou = get_iou_alr(preds[idx:], labels[idx:])[0]
+        print(iou, uncs[idx:].mean(), idx)
+        ious.append(iou)
+
+    return ious
+
+def get_iou_alr(preds, labels, classes=2):
+    iou = [0] * classes
+
+    with torch.no_grad():
+        for i in range(classes):
+            p = (preds == i).bool()
+            l = (labels == i).bool()
+
+            intersect = (p & l).sum().float().item()
+            union = (p | l).sum().float().item()
+            iou[i] = intersect / union if union > 0 else 0
+
+    return iou

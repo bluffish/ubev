@@ -63,10 +63,10 @@ if __name__ == "__main__":
             ood_m_aupr += b
             k += 1
 
-        ood_auroc, ood_aupr = roc_pr(epistemic, oods)[4:6]
+        ood_auroc, ood_aupr, ood_fpr95 = roc_pr(epistemic, oods)[4:7]
         _, _, oods_o, _, epistemic_o, _ = eval(config, "ood", "mini", dataroot)
-        ood_auroc_o, ood_aupr_o = roc_pr(epistemic_o, oods_o)[4:6]
-
+        ood_auroc_o, ood_aupr_o, ood_fpr95_o = roc_pr(epistemic_o, oods_o)[4:7]
+        print(ood_fpr95, ood_fpr95_o)
         print(f'&{iou:.3g}&{ece:.3g}&{roc:.3g}&{pr:.3g}&{ood_auroc:.3g}&{ood_aupr:.3g}\\\\')
         print(f'=SPLIT("{iou:.3g},{ece:.3g},{roc:.3g},{pr:.3g},{ood_m_auroc/k:.3g},{ood_m_aupr/k:.3g},{ood_auroc:.3g},{ood_aupr:.3g},{ood_auroc_o:.3g},{ood_aupr_o:.3g}", ",")')
     elif config['pos_class'] == 'road':

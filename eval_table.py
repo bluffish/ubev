@@ -31,10 +31,10 @@ def get(config):
     iou = get_iou(preds, labels, exclude=oods)[0]
     ece = expected_calibration_error(preds, labels, exclude=oods)[2]
     mis = get_mis(preds, labels)
-    roc, pr = roc_pr(aleatoric, mis, exclude=oods)[4:6]
-    ood_auroc, ood_aupr = roc_pr(epistemic, oods)[4:6]
+    roc, pr, _, fpr95 = roc_pr(aleatoric, mis, exclude=oods)[4:8]
+    ood_auroc, ood_aupr, _, ood_fpr95 = roc_pr(epistemic, oods)[4:8]
     # print([iou, ece, roc, pr, ood_auroc, ood_aupr])
-    return [iou, ece, roc, pr, ood_auroc, ood_aupr]
+    return [iou, ece, roc, pr, fpr95, ood_auroc, ood_aupr, ood_fpr95]
 
 
 if __name__ == "__main__":
@@ -72,6 +72,11 @@ if __name__ == "__main__":
         config['pretrained'] = config['c_pre']
 
     out += get(config)
+
+    print(f"{out[4]:.3g}")
+    print(f"{out[7]:.3g}")
+    print(f"{out[8 + 4]:.3g}")
+    print(f"{out[8 + 7]:.3g}")
 
     ans = '=SPLIT("'
 
