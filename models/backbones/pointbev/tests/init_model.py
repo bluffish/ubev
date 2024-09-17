@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import cv2
 import hydra
 import pyrootutils
 import pytorch_lightning as L
@@ -45,4 +46,6 @@ model = get_model().to(device)
 out = model(imgs, rots, trans, intrins, bev_aug, egoTin_to_seq)
 
 print(out['bev']['binimg'].shape)
-print(out.keys())
+print(out['masks']['bev']['binimg'].shape)
+
+cv2.imwrite("test.png", out['masks']['bev']['binimg'][0, 0, 0].long().cpu().numpy() * 255)

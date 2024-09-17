@@ -26,6 +26,7 @@ class Model(nn.Module):
         if self.weights is not None:
             self.weights = self.weights.to(self.device)
 
+        self.bbt = backbone
         self.backbone = None
 
         self.loss_type = loss_type
@@ -83,23 +84,17 @@ class Model(nn.Module):
     def train_step(self, images, intrinsics, extrinsics, labels):
         self.opt.zero_grad(set_to_none=True)
 
-        if self.scaler is not None:
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
-                outs = self(images, intrinsics, extrinsics)
-                loss = self.loss(outs, labels.to(self.device))
-
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.opt)
-
-            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-            self.scaler.step(self.opt)
-            self.scaler.update()
+        if self.bbt == 'pointbev':
+            outs, mask = self(images, intrinsics, extrinsics)
+            loss = self.loss(outs, labels.to(self.device), reduction='none')
+            loss = (loss.unsqueeze(1) * mask).sum() / (mask.sum() + 1e-6)
         else:
             outs = self(images, intrinsics, extrinsics)
             loss = self.loss(outs, labels.to(self.device))
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-            self.opt.step()
+
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+        self.opt.step()
 
         preds = self.activate(outs)
         return outs, preds, loss

@@ -54,7 +54,7 @@ train_shuffle: True
 # Inputs.
 normalize_img: True 
 keep_input_binimg: True
-keep_input_centr_offs: True
+keep_input_centr_offs: False
 keep_input_detection: False
 keep_input_hdmap: False
 #hdmap_names: ['drivable_area']

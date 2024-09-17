@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import List
 
 import spconv.pytorch as spconv
+import torch
 from torch import nn
 from torch.nn import functional as F
 
@@ -128,7 +129,7 @@ class BEVConvHead(nn.Module):
 
         if self.with_centr_offs:
             feats = out_dict["centerness"]
-            out_dict["centerness"] = apply_activ_(feats, lambda x: F.sigmoid(x))
+            out_dict["centerness"] = apply_activ_(feats, lambda x: torch.sigmoid(x))
         return out_dict
 
     def forward(self, x):

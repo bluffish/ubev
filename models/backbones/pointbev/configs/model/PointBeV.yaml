@@ -4,8 +4,8 @@ defaults:
   - net/projector: camprojector.yaml
   - net/temporal: null
   - net/autoencoder: sparse_unet.yaml
-  - net/view_transform: gs_sparse.yaml
-  - override net/heads: sparse_convn.yaml
+  - net/view_transform: gs.yaml
+  - override net/heads: convn.yaml
   
 name: PointBeV
 _target_: pointbev.models.BasicTrainer

@@ -53,8 +53,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
             self.pseudo_ood = ["bicycle"]
             self.true_ood = ["motorcycle"]
         else:
-            # self.pseudo_ood = ["vehicle.bicycle", "static_object.bicycle_rack", "vehicle.motorcycle"]
-            # self.pseudo_ood = ["vehicle.motorcycle"]
             self.pseudo_ood = ["static_object.bicycle_rack", "vehicle.bicycle"]
             self.true_ood = ["vehicle.motorcycle"]
 
@@ -121,9 +119,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
         records = []
-        id = 0
-        po = 0
-        to = 0
+
         for rec in samples:
             ego_pose = self.nusc.get('ego_pose', self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])['ego_pose_token'])
             ego_coord = ego_pose['translation']
@@ -139,7 +135,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50:
                     continue
 
-                if not self.is_lyft and int(inst['visibility_token']) <= 2:
+                if not self.is_lyft and int(inst['visibility_token']) < 2:
                     continue
 
                 if inst['category_name'] in self.true_ood:
@@ -147,10 +143,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
                     
                 if inst['category_name'] in self.pseudo_ood:
                     is_pseudo_ood = True
-                    
-            if is_true_ood: to+=1
-            if is_pseudo_ood: po+=1
-            if not is_true_ood and not is_pseudo_ood: id+=1
+
+            if is_true_ood and is_pseudo_ood:
+                continue
 
             if self.ind and not is_pseudo_ood and not is_true_ood:
                 records.append(rec)
@@ -158,10 +153,8 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 records.append(rec)
             if self.pseudo and is_pseudo_ood:
                 records.append(rec)
-        print(id, po, to)
-        return records
 
-        # return samples
+        return records
 
     @staticmethod
     def get_resizing_and_cropping_parameters():

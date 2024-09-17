@@ -46,4 +46,7 @@ class PointBEV(nn.Module):
 
         out = self.model(images, rots, trans, intrinsics, bev_aug, egoTin_to_seq)
 
-        return out['bev']['binimg'].squeeze(1)
+        binimg = out['bev']['binimg'].squeeze(1)
+        mask = out['masks']['bev']['binimg'].squeeze(1)
+
+        return binimg, mask

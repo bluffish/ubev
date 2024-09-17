@@ -16,5 +16,5 @@ coordembd: null
 heightcomp:
   comp: null
 # Dense or sparse
-input_sparse: False
+input_sparse: True
 return_sparse: False
