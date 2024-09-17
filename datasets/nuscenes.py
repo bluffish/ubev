@@ -132,9 +132,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50:
                     continue
 
-                if not self.is_lyft and int(inst['visibility_token']) <= 2:
-                    continue
-
                 if inst['category_name'] in self.true_ood:
                     is_true_ood = True
 
@@ -145,7 +142,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 records.append(rec)
             if self.ood and is_true_ood:
                 records.append(rec)
-            if self.pseudo and is_pseudo_ood:
+            if self.pseudo and is_pseudo_ood and not is_true_ood:
                 records.append(rec)
 
         return records
@@ -247,9 +244,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
                     pts, _ = self.get_region(inst, trans, rot)
                     cv2.fillPoly(ood, [pts], 1.0)
             else:
-                if int(inst['visibility_token']) == 1:
-                    continue
-
                 if 'vehicle' in inst['category_name']:
                     pts, _ = self.get_region(inst, trans, rot)
                     cv2.fillPoly(vehicles, [pts], 1.0)
