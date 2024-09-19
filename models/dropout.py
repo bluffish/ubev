@@ -27,8 +27,7 @@ class Dropout(Model):
         return torch.stack(out)
 
     def loss(self, logits, target, reduction='mean'):
-        target = target.repeat(logits.shape[0], 1, 1, 1)
-        logits = logits.reshape(logits.shape[0]*logits.shape[1], logits.shape[2], logits.shape[3], logits.shape[4])
+        logits = logits[0]
 
         if self.loss_type == 'ce':
             A = ce_loss(logits, target, weights=self.weights)

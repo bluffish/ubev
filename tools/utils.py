@@ -146,6 +146,9 @@ def save_unc(u_score, u_true, out_path, score_name, true_name):
 
 
 def save_pred(pred, label, out_path, ego=False):
+    if len(pred.shape) == 5:
+        pred = pred[0]
+
     if pred.shape[1] != 2:
         pred = map_rgb(pred[0], ego=ego)
         label = map_rgb(label[0], ego=ego)
