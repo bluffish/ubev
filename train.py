@@ -25,15 +25,21 @@ def train(config, resume=False):
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
-    if config['stable']:
-        train_set = "train_aug_stable"
-        val_set = "val_aug_stable"
-    elif config['comb']:
-        train_set = "train_comb"
-        val_set = "val_comb"
-    else:
+    if config['dataset'] == 'nuscenes':
+        if config['stable']:
+            train_set = "train_aug_stable"
+            val_set = "val_aug_stable"
+        elif config['comb']:
+            train_set = "train_comb"
+            val_set = "val_comb"
+        else:
+            train_set = "train"
+            val_set = "val"
+    elif config['dataset'] == 'carla':
         train_set = "train"
         val_set = "val"
+    else:
+        raise NotImplementedError(f"Dataset {config['dataset']} not supported")
 
     if 'train_set' in config:
         train_set = config['train_set']
