@@ -1,7 +1,6 @@
 from models.model import Model
 from tools.uncertainty import *
 from tools.loss import *
-import einops
 
 class Dropout(Model):
     def __init__(self, *args, **kwargs):
@@ -28,8 +27,9 @@ class Dropout(Model):
         return torch.stack(out)
 
     def loss(self, logits, target, reduction='mean'):
-        logits = einops.rearrange(logits, 'm b c h w -> (m b) c h w')
-        target = einops.rearrange(target, 'm b h w -> (m b) h w')
+        target = target.repeat(logits.shape[0], 1, 1, 1)
+        logits = logits.reshape(logits.shape[0]*logits.shape[1], logits.shape[2], logits.shape[3], logits.shape[4])
+
         if self.loss_type == 'ce':
             A = ce_loss(logits, target, weights=self.weights)
         elif self.loss_type == 'focal':
