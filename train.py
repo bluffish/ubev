@@ -25,16 +25,12 @@ def train(config, resume=False):
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
-    if config['ood']:
-        if config['stable']:
-            train_set = "train_aug_stable"
-            val_set = "val_aug_stable"
-        elif config['comb']:
-            train_set = "train_comb"
-            val_set = "val_comb"
-        else:
-            train_set = "train"
-            val_set = "val"
+    if config['stable']:
+        train_set = "train_aug_stable"
+        val_set = "val_aug_stable"
+    elif config['comb']:
+        train_set = "train_comb"
+        val_set = "val_comb"
     else:
         train_set = "train"
         val_set = "val"

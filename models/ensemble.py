@@ -3,6 +3,7 @@ import torch
 from models.model import *
 from tools.loss import *
 from tools.uncertainty import *
+import einops
 
 import torch.nn as nn
 
@@ -66,6 +67,26 @@ class Ensemble(Model):
 
     def forward(self, images, intrinsics, extrinsics):
         x = self.backbone(images[None], intrinsics[None], extrinsics[None])
-
         return x
+    
+    def loss(self, logits, target, reduction='mean'):
+        logits = einops.rearrange(logits, 'm b c h w -> (m b) c h w')
+        target = einops.rearrange(target, 'm b h w -> (m b) h w')
+        if self.loss_type == 'ce':
+            A = ce_loss(logits, target, weights=self.weights)
+        elif self.loss_type == 'focal':
+            A = focal_loss(logits, target, weights=self.weights, n=self.gamma)
+        else:
+            raise NotImplementedError()
 
+        if reduction == 'mean':
+            return A.mean()
+        else:
+            return A
+
+    def train_step_ood(self, images, intrinsics, extrinsics, labels, ood):
+        outs, preds, loss = self.train_step(images, intrinsics, extrinsics, labels)
+        return outs, preds, loss, torch.tensor(0.0, dtype=loss.dtype, device=loss.device)
+
+    def loss_ood(self, alpha, y, ood):
+        return self.loss(alpha, y), torch.tensor(0.0, dtype=alpha.dtype, device=alpha.device)
