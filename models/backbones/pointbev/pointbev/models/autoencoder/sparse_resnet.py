@@ -223,15 +223,18 @@ class SparseUNet(nn.Module):
         from_dense=True,
         **kwargs,
     ):
-        if not from_dense:
-            assert indices is not None
-            assert spatial_shape is not None
-            assert batch_size is not None
-            x_sp = spconv.SparseConvTensor(feats, indices, spatial_shape, batch_size)
-        else:
-            feats = rearrange(feats, "b c h w -> b h w c")
-            x_sp = spconv.SparseConvTensor.from_dense(feats)
-        x_sp, skip_x = self.encoder(x_sp)
-        x_sp = self.decoder(x_sp, skip_x)
-        x_sp = self.tail_conv(x_sp)
-        return x_sp
+        # if not from_dense:
+        #     assert indices is not None
+        #     assert spatial_shape is not None
+        #     assert batch_size is not None
+        #     x_sp = spconv.SparseConvTensor(feats, indices, spatial_shape, batch_size)
+        # else:
+        #     feats = rearrange(feats, "b c h w -> b h w c")
+        #     x_sp = spconv.SparseConvTensor.from_dense(feats)
+        # x_sp, skip_x = self.encoder(x_sp)
+        # x_sp = self.decoder(x_sp, skip_x)
+        # x_sp = self.tail_conv(x_sp)
+        # print(x_sp.shape, feats.shape)
+        return feats[:, 0]
+
+

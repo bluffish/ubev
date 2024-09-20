@@ -55,12 +55,15 @@ class NuScenesDataset(torch.utils.data.Dataset):
         else:
             self.pseudo_ood = ["static_object.bicycle_rack", "vehicle.bicycle"]
             self.true_ood = ["vehicle.motorcycle"]
+            # self.pseudo_ood = ["movable_object.debris", "movable_object.pushable_pullable", "movable_object.barrier"]
+            # self.true_ood = ["movable_object.pushable_pullable"]
 
         if true_ood is not None:
             self.true_ood = true_ood
 
         self.all_ood = self.true_ood + self.pseudo_ood
         print(self.pseudo_ood, self.true_ood)
+
         self.nusc = nusc
         self.is_train = is_train
 
@@ -132,7 +135,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
                 box_coord = inst['translation']
 
-                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50:
+                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50 * (2 ** .5):
                     continue
 
                 if not self.is_lyft and int(inst['visibility_token']) < 2:
@@ -144,14 +147,11 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 if inst['category_name'] in self.pseudo_ood:
                     is_pseudo_ood = True
 
-            if is_true_ood and is_pseudo_ood:
-                continue
-
             if self.ind and not is_pseudo_ood and not is_true_ood:
                 records.append(rec)
             if self.ood and is_true_ood:
                 records.append(rec)
-            if self.pseudo and is_pseudo_ood:
+            if self.pseudo and is_pseudo_ood and not is_true_ood:
                 records.append(rec)
 
         return records

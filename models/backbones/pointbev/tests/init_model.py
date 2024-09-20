@@ -25,7 +25,7 @@ def get_model():
         cfg = hydra.compose(
             config_name="train.yaml",
             return_hydra_config=True,
-            overrides=["model=PointBeV"],
+            overrides=["model=BeVFormer"],
         )
 
         cfg.paths.root_dir = str(pyrootutils.find_root(indicator=".project-root"))
@@ -46,6 +46,6 @@ model = get_model().to(device)
 out = model(imgs, rots, trans, intrins, bev_aug, egoTin_to_seq)
 
 print(out['bev']['binimg'].shape)
-print(out['masks']['bev']['binimg'].shape)
+# print(out['masks']['bev']['binimg'].shape)
 
 cv2.imwrite("test.png", out['masks']['bev']['binimg'][0, 0, 0].long().cpu().numpy() * 255)

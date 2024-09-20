@@ -38,7 +38,7 @@ def train():
     if 'val_set' in config:
         val_set = config['val_set']
 
-    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'bevformer':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
@@ -140,6 +140,7 @@ def train():
         writer.add_scalar('train/epoch', epoch, step)
 
         for images, intrinsics, extrinsics, labels, ood in train_loader:
+            
             t_0 = time()
             ood_loss = None
 

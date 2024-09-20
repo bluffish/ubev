@@ -5,12 +5,14 @@ from models.backbones.cvt.cross_view_transformer import CrossViewTransformer
 from models.backbones.fiery.fiery import Fiery
 from models.backbones.lss.lift_splat_shoot import LiftSplatShoot
 from models.backbones.pointbev.pointbev_model import PointBEV
+from models.backbones.pointbev.bevformer_model import BEVFormer
 
 backbones = {
     'fiery': Fiery,
     'cvt': CrossViewTransformer,
     'lss': LiftSplatShoot,
     'pointbev': PointBEV,
+    'bevformer': BEVFormer,
 }
 
 
@@ -87,6 +89,7 @@ class Model(nn.Module):
         if self.bbt == 'pointbev':
             outs, mask = self(images, intrinsics, extrinsics)
             loss = self.loss(outs, labels.to(self.device), reduction='none')
+
             loss = (loss.unsqueeze(1) * mask).sum() / (mask.sum() + 1e-6)
         else:
             outs = self(images, intrinsics, extrinsics)

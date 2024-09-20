@@ -92,7 +92,12 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
     with torch.no_grad():
         for images, intrinsics, extrinsics, label, ood in tqdm(loader, desc="Running validation", disable=disable_tqdm):
             out = model(images, intrinsics, extrinsics)
-            out = out.detach().cpu()
+
+            if isinstance(out, tuple):
+                mask = out[1].detach().cpu()
+                out = out[0].detach().cpu()
+            else:
+                out = out.detach().cpu()
 
             total_ood += ood.sum()
             total_id += label[:, 0].sum()

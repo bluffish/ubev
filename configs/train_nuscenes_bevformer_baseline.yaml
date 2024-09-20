@@ -1,7 +1,7 @@
 type: 'baseline'
-backbone: 'pointbev'
+backbone: 'bevformer'
 dataset: 'nuscenes'
-logdir: 'outputs/nuscenes/pointbev_baseline'
+logdir: 'outputs/nuscenes/bevformer_baseline'
 gpus: [7]
 batch_size: 32
 num_workers: 32

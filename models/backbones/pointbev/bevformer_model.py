@@ -11,12 +11,12 @@ from einops import repeat
 pyrootutils.set_root('./models/backbones/pointbev', pythonpath=True)
 
 
-class PointBEV(nn.Module):
+class BEVFormer(nn.Module):
     def __init__(
             self,
             n_classes=2,
     ):
-        super(PointBEV, self).__init__()
+        super(BEVFormer, self).__init__()
         self.model = self.get_model()
 
     def get_model(self):
@@ -24,7 +24,7 @@ class PointBEV(nn.Module):
             cfg = hydra.compose(
                 config_name="train.yaml",
                 return_hydra_config=True,
-                overrides=["model=PointBEV"],
+                overrides=["model=BeVFormer"],
             )
 
             cfg.paths.root_dir = './models/backbones/pointbev'
@@ -47,7 +47,5 @@ class PointBEV(nn.Module):
         out = self.model(images, rots, trans, intrinsics, bev_aug, egoTin_to_seq)
 
         binimg = out['bev']['binimg'].squeeze(1)
-        mask = out['masks']['bev']['binimg'].squeeze(1)
-        # binimg = out['bev'].squeeze(1)
 
-        return binimg, mask
+        return binimg
