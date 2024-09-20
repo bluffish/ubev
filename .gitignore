@@ -22,3 +22,6 @@ mmdet*
 
 /cache
 /plots
+
+/outputs
+/outputs*
