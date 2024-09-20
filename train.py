@@ -25,7 +25,7 @@ def train(config, resume=False):
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
-    if config['ood']:
+    if config['dataset'] == 'nuscenes':
         if config['stable']:
             train_set = "train_aug_stable"
             val_set = "val_aug_stable"
@@ -35,9 +35,11 @@ def train(config, resume=False):
         else:
             train_set = "train"
             val_set = "val"
-    else:
+    elif config['dataset'] == 'carla':
         train_set = "train"
         val_set = "val"
+    else:
+        raise NotImplementedError(f"Dataset {config['dataset']} not supported")
 
     if 'train_set' in config:
         train_set = config['train_set']
@@ -315,7 +317,7 @@ if __name__ == "__main__":
     parser.add_argument('--resume', default=False, action='store_true', help='Resume from existing checkpoint')
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('--stable', default=False, action='store_true', help='Use stable diffusion pseudo OOD set')
-    parser.add_argument('--comb', default=False, action='store_true', help='Use comb OOD set') # for neuroips submission
+    parser.add_argument('--comb', default=True, action='store_true', help='Use comb OOD set') # for neuroips submission
     parser.add_argument('-e', '--num_epochs', default=200, required=False, type=int)
     parser.add_argument('-c', '--pos_class', default='vehicle', required=False, type=str)
     parser.add_argument('-f', '--fast', default=False, action='store_true', help='Use torch.compile to speedup')
