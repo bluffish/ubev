@@ -1,0 +1,8 @@
+type: 'baseline'
+backbone: 'fiery'
+dataset: 'carla'
+logdir: 'outputs/carla/fiery_baseline'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/fiery_baseline/9.pt'

@@ -1,0 +1,24 @@
+ufocal_gamma=.1:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/carla/road/lss_ufocal/19.pt'
+  label: "LSS UFocal Gamma=.1"
+
+ufocal_gamma=0:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/carla/road/lss_ufocal_gamma=0/19.pt'
+  label: "LSS UFocal Gamma=0"
+
+uce_beta=.01:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/carla/road/lss_uce_beta=.01/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.01"
+
+uce_beta=.001:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/carla/road/lss_uce_beta=.001/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.001"
+
+uce_beta=.0005:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: './outputs_bin/carla/road/lss_uce_beta=.0005/19.pt'
+  label: "LSS UCE Entropy Reg. Beta=.0005"

@@ -1,0 +1,8 @@
+type: 'ensemble'
+backbone: 'lss'
+dataset: 'nuscenes'
+logdir: 'outputs/nuscenes/lss_ensemble'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/lss_ensemble/9.pt'

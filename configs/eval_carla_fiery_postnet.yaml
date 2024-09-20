@@ -1,0 +1,8 @@
+type: 'postnet'
+backbone: 'fiery'
+dataset: 'carla'
+logdir: 'outputs/carla/fiery_postnet'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/fiery_postnet/19.pt'

@@ -1,0 +1,11 @@
+type: 'postnet'
+backbone: 'cvt'
+dataset: 'carla'
+logdir: 'outputs/carla/cvt_postnet'
+gpus: [7]
+batch_size: 32
+num_workers: 32
+weight_decay: 0.0000001
+learning_rate: 0.001
+num_epochs: 20
+loss: ce

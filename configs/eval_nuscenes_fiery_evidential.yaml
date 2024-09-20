@@ -1,0 +1,8 @@
+type: 'evidential'
+backbone: 'fiery'
+dataset: 'nuscenes'
+logdir: 'outputs/nuscenes/fiery_evidential'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/fiery_evidential/19.pt'

@@ -1,0 +1,8 @@
+type: 'ensemble'
+backbone: 'lss'
+dataset: 'lyft'
+logdir: 'outputs/lyft/lss_ensemble'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/lyft/lss_ensemble/9.pt'

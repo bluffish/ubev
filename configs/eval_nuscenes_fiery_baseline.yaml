@@ -1,0 +1,8 @@
+type: 'baseline'
+backbone: 'fiery'
+dataset: 'nuscenes'
+logdir: 'outputs/nuscenes/fiery_baseline'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/fiery_baseline/9.pt'

@@ -1,0 +1,8 @@
+type: 'ensemble'
+backbone: 'cvt'
+dataset: 'carla'
+logdir: 'outputs/carla/cvt_ensemble'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/cvt_ensemble/19.pt'

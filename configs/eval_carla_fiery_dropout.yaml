@@ -1,0 +1,8 @@
+type: 'dropout'
+backbone: 'fiery'
+dataset: 'carla'
+logdir: 'outputs/carla/fiery_dropout'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/fiery_baseline/19.pt'

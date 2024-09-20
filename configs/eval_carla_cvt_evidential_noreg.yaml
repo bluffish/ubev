@@ -1,0 +1,8 @@
+type: 'evidential_noreg'
+backbone: 'cvt'
+dataset: 'carla'
+logdir: 'outputs/carla/cvt_evidential_noreg'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/carla/cvt_evidential_noreg/19.pt'
