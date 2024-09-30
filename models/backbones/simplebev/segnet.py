@@ -6,10 +6,10 @@ import sys
 
 sys.path.append("..")
 
-import utils.geom
-import utils.vox
-import utils.misc
-import utils.basic
+import models.backbones.simplebev.utils.geom
+import models.backbones.simplebev.utils.vox
+import models.backbones.simplebev.utils.misc
+import models.backbones.simplebev.utils.basic
 
 from torchvision.models.resnet import resnet18
 from efficientnet_pytorch import EfficientNet
@@ -78,39 +78,39 @@ class Decoder(nn.Module):
         self.up2_skip = UpsamplingAdd(128, 64, scale_factor=2)
         self.up1_skip = UpsamplingAdd(64, shared_out_channels, scale_factor=2)
 
-        self.feat_head = nn.Sequential(
-            nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
-            nn.InstanceNorm2d(shared_out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=1, padding=0),
-        )
+        # self.feat_head = nn.Sequential(
+        #     nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
+        #     nn.InstanceNorm2d(shared_out_channels),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=1, padding=0),
+        # )
         self.segmentation_head = nn.Sequential(
             nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
             nn.InstanceNorm2d(shared_out_channels),
             nn.ReLU(inplace=True),
             nn.Conv2d(shared_out_channels, n_classes, kernel_size=1, padding=0),
         )
-        self.instance_offset_head = nn.Sequential(
-            nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
-            nn.InstanceNorm2d(shared_out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(shared_out_channels, 2, kernel_size=1, padding=0),
-        )
-        self.instance_center_head = nn.Sequential(
-            nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
-            nn.InstanceNorm2d(shared_out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(shared_out_channels, 1, kernel_size=1, padding=0),
-            nn.Sigmoid(),
-        )
-
-        if self.predict_future_flow:
-            self.instance_future_head = nn.Sequential(
-                nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
-                nn.InstanceNorm2d(shared_out_channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(shared_out_channels, 2, kernel_size=1, padding=0),
-            )
+        # self.instance_offset_head = nn.Sequential(
+        #     nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
+        #     nn.InstanceNorm2d(shared_out_channels),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(shared_out_channels, 2, kernel_size=1, padding=0),
+        # )
+        # self.instance_center_head = nn.Sequential(
+        #     nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
+        #     nn.InstanceNorm2d(shared_out_channels),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(shared_out_channels, 1, kernel_size=1, padding=0),
+        #     nn.Sigmoid(),
+        # )
+        #
+        # if self.predict_future_flow:
+        #     self.instance_future_head = nn.Sequential(
+        #         nn.Conv2d(shared_out_channels, shared_out_channels, kernel_size=3, padding=1, bias=False),
+        #         nn.InstanceNorm2d(shared_out_channels),
+        #         nn.ReLU(inplace=True),
+        #         nn.Conv2d(shared_out_channels, 2, kernel_size=1, padding=0),
+        #     )
 
     def forward(self, x, bev_flip_indices=None):
         b, c, h, w = x.shape
@@ -144,20 +144,20 @@ class Decoder(nn.Module):
             x[bev_flip2_index] = torch.flip(x[bev_flip2_index], [-2])  # note [-2] instead of [-3], since Y is gone now
             x[bev_flip1_index] = torch.flip(x[bev_flip1_index], [-1])
 
-        feat_output = self.feat_head(x)
+        # feat_output = self.feat_head(x)
         segmentation_output = self.segmentation_head(x)
-        instance_center_output = self.instance_center_head(x)
-        instance_offset_output = self.instance_offset_head(x)
-        instance_future_output = self.instance_future_head(x) if self.predict_future_flow else None
+        # instance_center_output = self.instance_center_head(x)
+        # instance_offset_output = self.instance_offset_head(x)
+        # instance_future_output = self.instance_future_head(x) if self.predict_future_flow else None
 
         return {
             'raw_feat': x,
-            'feat': feat_output.view(b, *feat_output.shape[1:]),
+            # 'feat': feat_output.view(b, *feat_output.shape[1:]),
             'segmentation': segmentation_output.view(b, *segmentation_output.shape[1:]),
-            'instance_center': instance_center_output.view(b, *instance_center_output.shape[1:]),
-            'instance_offset': instance_offset_output.view(b, *instance_offset_output.shape[1:]),
-            'instance_flow': instance_future_output.view(b, *instance_future_output.shape[1:])
-            if instance_future_output is not None else None,
+            # 'instance_center': instance_center_output.view(b, *instance_center_output.shape[1:]),
+            # 'instance_offset': instance_offset_output.view(b, *instance_offset_output.shape[1:]),
+            # 'instance_flow': instance_future_output.view(b, *instance_future_output.shape[1:])
+            # if instance_future_output is not None else None,
         }
 
 
@@ -297,14 +297,14 @@ class Encoder_eff(nn.Module):
 
 
 class Segnet(nn.Module):
-    def __init__(self, Z, Y, X, vox_util=None,
+    def __init__(self, Z=200, Y=8, X=200, vox_util=None,
                  use_radar=False,
                  use_lidar=False,
                  use_metaradar=False,
                  do_rgbcompress=True,
                  rand_flip=False,
                  latent_dim=128,
-                 encoder_type="res101"):
+                 encoder_type="effb4"):
         super(Segnet, self).__init__()
         assert (encoder_type in ["res101", "res50", "effb0", "effb4"])
 
@@ -316,9 +316,6 @@ class Segnet(nn.Module):
         self.rand_flip = rand_flip
         self.latent_dim = latent_dim
         self.encoder_type = encoder_type
-
-        self.mean = torch.as_tensor([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1).float().cuda()
-        self.std = torch.as_tensor([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1).float().cuda()
 
         # Encoder
         self.feat2d_dim = feat2d_dim = latent_dim
@@ -366,7 +363,7 @@ class Segnet(nn.Module):
         # Decoder
         self.decoder = Decoder(
             in_channels=latent_dim,
-            n_classes=1,
+            n_classes=2,
             predict_future_flow=False
         )
 
@@ -383,7 +380,7 @@ class Segnet(nn.Module):
         else:
             self.xyz_camA = None
 
-    def forward(self, rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util, rad_occ_mem0=None):
+    def forward(self, rgb_camXs, pix_T_cams_, cam0_T_camXs, vox_util, rad_occ_mem0=None):
         '''
         B = batch size, S = number of cameras, C = 3, H = img height, W = img width
         rgb_camXs: (B,S,C,H,W)
@@ -396,19 +393,33 @@ class Segnet(nn.Module):
             - (B, 16, Z, Y, X) when use_radar = True, use_metaradar = True
             - (B, 1, Z, Y, X) when use_lidar = True
         '''
+
         B, S, C, H, W = rgb_camXs.shape
+        device = rgb_camXs.device
         assert (C == 3)
+
+        pix_T_cams = torch.zeros((B, S, 4, 4)).to(device)
+        pix_T_cams[:, :, :3, :3] = pix_T_cams_
+        pix_T_cams[:, :, -1, -1] = 1.
+
         # reshape tensors
-        __p = lambda x: utils.basic.pack_seqdim(x, B)
-        __u = lambda x: utils.basic.unpack_seqdim(x, B)
+        __p = lambda x: models.backbones.simplebev.utils.basic.pack_seqdim(x, B)
+        __u = lambda x: models.backbones.simplebev.utils.basic.unpack_seqdim(x, B)
+
+        cam0_T_camXs = models.backbones.simplebev.utils.geom.get_camM_T_camXs(cam0_T_camXs, ind=0)
+
+        # print(pix_T_cams[0, 1])
+        # print(cam0_T_camXs[0, 1])
+        # print("--")
+
         rgb_camXs_ = __p(rgb_camXs)
         pix_T_cams_ = __p(pix_T_cams)
         cam0_T_camXs_ = __p(cam0_T_camXs)
-        camXs_T_cam0_ = utils.geom.safe_inverse(cam0_T_camXs_)
+        camXs_T_cam0_ = models.backbones.simplebev.utils.geom.safe_inverse(cam0_T_camXs_)
 
         # rgb encoder
         device = rgb_camXs_.device
-        rgb_camXs_ = (rgb_camXs_ + 0.5 - self.mean.to(device)) / self.std.to(device)
+
         if self.rand_flip:
             B0, _, _, _ = rgb_camXs_.shape
             self.rgb_flip_index = np.random.choice([0, 1], B0).astype(bool)
@@ -423,20 +434,20 @@ class Segnet(nn.Module):
         Z, Y, X = self.Z, self.Y, self.X
 
         # unproject image feature to 3d grid
-        featpix_T_cams_ = utils.geom.scale_intrinsics(pix_T_cams_, sx, sy)
+        featpix_T_cams_ = models.backbones.simplebev.utils.geom.scale_intrinsics(pix_T_cams_, sx, sy)
         if self.xyz_camA is not None:
             xyz_camA = self.xyz_camA.to(feat_camXs_.device).repeat(B * S, 1, 1)
         else:
             xyz_camA = None
         feat_mems_ = vox_util.unproject_image_to_mem(
             feat_camXs_,
-            utils.basic.matmul2(featpix_T_cams_, camXs_T_cam0_),
+            models.backbones.simplebev.utils.basic.matmul2(featpix_T_cams_, camXs_T_cam0_),
             camXs_T_cam0_, Z, Y, X,
             xyz_camA=xyz_camA)
         feat_mems = __u(feat_mems_)  # B, S, C, Z, Y, X
 
         mask_mems = (torch.abs(feat_mems) > 0).float()
-        feat_mem = utils.basic.reduce_masked_mean(feat_mems, mask_mems, dim=1)  # B, C, Z, Y, X
+        feat_mem = models.backbones.simplebev.utils.basic.reduce_masked_mean(feat_mems, mask_mems, dim=1)  # B, C, Z, Y, X
 
         if self.rand_flip:
             self.bev_flip1_index = np.random.choice([0, 1], B).astype(bool)
@@ -476,11 +487,7 @@ class Segnet(nn.Module):
 
         # bev decoder
         out_dict = self.decoder(feat_bev, (self.bev_flip1_index, self.bev_flip2_index) if self.rand_flip else None)
-
-        raw_e = out_dict['raw_feat']
-        feat_e = out_dict['feat']
         seg_e = out_dict['segmentation']
-        center_e = out_dict['instance_center']
-        offset_e = out_dict['instance_offset']
 
-        return raw_e, feat_e, seg_e, center_e, offset_e
+        # return raw_e, feat_e, seg_e, center_e, offset_e
+        return seg_e

@@ -49,7 +49,8 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         yaw=yaw,
-        true_ood=true_ood
+        true_ood=true_ood,
+        alt=config['alt']
     )
 
     print(f"Using set: {set}")
@@ -141,9 +142,10 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--ensemble', nargs='+', required=False, type=str)
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
-    parser.add_argument('--num_workers', required=False, type=int)
     parser.add_argument('--ep_mode', required=False, type=str)
     parser.add_argument('--true_ood', nargs='+', required=False, type=str)
+    parser.add_argument('--num_workers', default=16, action='store_true')
+    parser.add_argument('-a', '--alt', default=False, action='store_true')
 
     parser.add_argument('--pseudo', default=False, action='store_true')
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
@@ -157,6 +159,9 @@ if __name__ == "__main__":
     split, metric, set = args.split, args.metric, args.set
 
     preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
+
+    print(epistemic[oods.bool()].mean())
+    print(epistemic[~oods.bool()].mean())
 
     if args.save:
         torch.save(preds, os.path.join(config['logdir'], 'preds.pt'))

@@ -1,7 +1,7 @@
-type: 'baseline'
-backbone: 'lss'
+type: 'evidential'
+backbone: 'simplebev'
 dataset: 'nuscenes'
-logdir: 'outputs/nuscenes/lss_baseline'
+logdir: 'outputs/nuscenes/simplebev_evidential'
 gpus: [7]
 batch_size: 32
 weight_decay: 0.0000001

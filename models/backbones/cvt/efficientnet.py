@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
 
+torch.backends.cudnn.enabled = True
+
 # Precomputed aliases
 MODELS = {
     'efficientnet-b0': [
@@ -124,6 +126,7 @@ if __name__ == '__main__':
         net = EfficientNet.from_pretrained(model_name)
         net = net.to(device)
         net.set_swish(False)
+        net.train()
 
         drop = net._global_params.drop_connect_rate / len(net._blocks)
         conv = nn.Sequential(net._conv_stem, net._bn0, net._swish)

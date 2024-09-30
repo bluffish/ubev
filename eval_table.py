@@ -1,5 +1,8 @@
 from eval import *
 import seaborn as sns
+import sys
+
+warnings.filterwarnings("ignore")
 
 sns.set_style('white')
 sns.set_palette('muted')
@@ -26,7 +29,7 @@ torch.set_printoptions(precision=10)
 
 def get(config):
     dataroot = f"../data/{config['dataset']}"
-    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot, disable_tqdm=True)
 
     iou = get_iou(preds, labels, exclude=oods)[0]
     ece = expected_calibration_error(preds, labels, exclude=oods)[2]
@@ -49,10 +52,13 @@ if __name__ == "__main__":
     parser.add_argument('--n_pre', required=False, type=str)
     parser.add_argument('--c_ensemble', nargs='+', required=False, type=str)
     parser.add_argument('--n_ensemble', nargs='+', required=False, type=str)
+    parser.add_argument('--ep_mode', required=False, type=str)
 
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
     args = parser.parse_args()
+    save_stdout = sys.stdout
+    sys.stdout = open('trash', 'w')
 
     print(f"Using config {args.config}")
     config = get_config(args)
@@ -73,16 +79,12 @@ if __name__ == "__main__":
 
     out += get(config)
 
-    print(f"{out[4]:.3g}")
-    print(f"{out[7]:.3g}")
-    print(f"{out[8 + 4]:.3g}")
-    print(f"{out[8 + 7]:.3g}")
-
     ans = '=SPLIT("'
 
     for i in range(len(out)):
         ans += f"{out[i]:.3g},"
 
     ans = ans[0:len(ans)-1]+'", ",")'
+    sys.stdout = save_stdout
 
     print(ans)

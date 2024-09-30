@@ -15,7 +15,6 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
 
-
 def train():
     classes, n_classes, weights = change_params(config)
 
@@ -38,7 +37,7 @@ def train():
     if 'val_set' in config:
         val_set = config['val_set']
 
-    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'bevformer':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'bevformer' or config['backbone'] == 'simplebev':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
@@ -58,21 +57,23 @@ def train():
     train_loader = datasets[config['dataset']](
         train_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
-        num_workers=config['num_workers'],
         is_train=True,
         seed=config['seed'],
+        num_workers=config['num_workers'],
         yaw=yaw,
-        true_ood=true_ood
+        true_ood=true_ood,
+        alt=config['alt']
     )
 
     val_loader = datasets[config['dataset']](
         val_set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
-        num_workers=config['num_workers'],
         is_train=False,
         seed=config['seed'],
+        num_workers=config['num_workers'],
         yaw=yaw,
-        true_ood=true_ood
+        true_ood=true_ood,
+        alt=config['alt']
     )
 
     model.opt = torch.optim.Adam(
@@ -133,6 +134,7 @@ def train():
 
     # enable to catch errors in loss function
     # torch.autograd.set_detect_anomaly(True)
+    torch.cuda.empty_cache()
 
     for epoch in range(config['num_epochs']):
         model.train()
@@ -176,69 +178,70 @@ def train():
                 for i in range(0, n_classes):
                     writer.add_scalar(f'train/{classes[i]}_iou', iou[i], step)
 
-        model.eval()
+        if (epoch + 1) % config['val_int'] == 0:
+            model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader)
-        iou = get_iou(predictions, ground_truth)
+            predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader)
+            iou = get_iou(predictions, ground_truth)
 
-        for i in range(0, n_classes):
-            writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
+            for i in range(0, n_classes):
+                writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
 
-        print(f"Validation mIOU: {iou}")
+            print(f"Validation mIOU: {iou}")
 
-        ood_loss = None
+            ood_loss = None
 
-        if config['ood']:
-            n_samples = len(raw)
-            val_loss = 0
-            ood_loss = 0
+            if config['ood']:
+                n_samples = len(raw)
+                val_loss = 0
+                ood_loss = 0
 
-            for i in range(0, n_samples, config['batch_size']):
-                raw_batch = raw[i:i + config['batch_size']].to(model.device)
-                ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
-                oods_batch = oods[i:i + config['batch_size']].to(model.device)
+                for i in range(0, n_samples, config['batch_size']):
+                    raw_batch = raw[i:i + config['batch_size']].to(model.device)
+                    ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
+                    oods_batch = oods[i:i + config['batch_size']].to(model.device)
 
-                vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+                    vl, ol = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
 
-                val_loss += vl
-                ood_loss += ol
+                    val_loss += vl
+                    ood_loss += ol
 
-            val_loss /= (n_samples / config['batch_size'])
-            ood_loss /= (n_samples / config['batch_size'])
+                val_loss /= (n_samples / config['batch_size'])
+                ood_loss /= (n_samples / config['batch_size'])
 
-            writer.add_scalar('val/ood_loss', ood_loss, epoch)
-            writer.add_scalar(f"val/loss", val_loss, epoch)
-            writer.add_scalar(f"val/uce_loss", val_loss - ood_loss, epoch)
+                writer.add_scalar('val/ood_loss', ood_loss, epoch)
+                writer.add_scalar(f"val/loss", val_loss, epoch)
+                writer.add_scalar(f"val/uce_loss", val_loss - ood_loss, epoch)
 
-            uncertainty_scores = epistemic[:256].squeeze(1)
-            uncertainty_labels = oods[:256].bool()
+                uncertainty_scores = epistemic[:256].squeeze(1)
+                uncertainty_labels = oods[:256].bool()
 
-            fpr, tpr, rec, pr, auroc, aupr, _, fpr95 = roc_pr(uncertainty_scores, uncertainty_labels)
-            writer.add_scalar(f"val/ood_auroc", auroc, epoch)
-            writer.add_scalar(f"val/ood_aupr", aupr, epoch)
-            writer.add_scalar(f"val/ood_fpr95", fpr95, epoch)
+                fpr, tpr, rec, pr, auroc, aupr, _, fpr95 = roc_pr(uncertainty_scores, uncertainty_labels)
+                writer.add_scalar(f"val/ood_auroc", auroc, epoch)
+                writer.add_scalar(f"val/ood_aupr", aupr, epoch)
+                writer.add_scalar(f"val/ood_fpr95", fpr95, epoch)
 
-            print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}, FPR95={fpr95}")
-        else:
-            n_samples = len(raw)
-            val_loss = 0
+                print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}, FPR95={fpr95}")
+            else:
+                n_samples = len(raw)
+                val_loss = 0
 
-            for i in range(0, n_samples, config['batch_size']):
-                raw_batch = raw[i:i + config['batch_size']].to(model.device)
-                ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
+                for i in range(0, n_samples, config['batch_size']):
+                    raw_batch = raw[i:i + config['batch_size']].to(model.device)
+                    ground_truth_batch = ground_truth[i:i + config['batch_size']].to(model.device)
 
-                vl = model.loss(raw_batch, ground_truth_batch)
+                    vl = model.loss(raw_batch, ground_truth_batch)
 
-                val_loss += vl
+                    val_loss += vl
 
-            val_loss /= (n_samples / config['batch_size'])
+                val_loss /= (n_samples / config['batch_size'])
 
-            writer.add_scalar(f"val/loss", val_loss, epoch)
+                writer.add_scalar(f"val/loss", val_loss, epoch)
 
-        if ood_loss is not None:
-            print(f"Validation loss: {val_loss}, OOD Reg.: {ood_loss}")
-        else:
-            print(f"Validation loss: {val_loss}")
+            if ood_loss is not None:
+                print(f"Validation loss: {val_loss}, OOD Reg.: {ood_loss}")
+            else:
+                print(f"Validation loss: {val_loss}")
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
 
@@ -261,9 +264,12 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
     parser.add_argument('-f', '--fast', default=False, action='store_true')
-    
+    parser.add_argument('-v', '--val_int', default=2, type=int)
+    parser.add_argument('-a', '--alt', default=False, action='store_true')
+
     parser.add_argument('--seed', default=0, required=False, type=int)
     parser.add_argument('--stable', default=False, action='store_true')
+    parser.add_argument('--num_workers', default=16, type=int)
 
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
@@ -297,7 +303,7 @@ if __name__ == "__main__":
                 config['gpus'] = available_gpus
                 break
             else:
-                sleep(random.randint(30, 90))
+                sleep(random.randint(60, 180))
 
         pynvml.nvmlShutdown()
 
@@ -308,6 +314,6 @@ if __name__ == "__main__":
         torch.inverse(torch.ones((1, 1), device=gpu))
 
     split = args.split
-    dataroot = f"../data/{config['dataset']}"\
+    dataroot = f"../data/{config['dataset']}"
 
     train()

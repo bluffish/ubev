@@ -35,7 +35,7 @@ VAL_LYFT_INDICES = [0, 2, 4, 13, 22, 25, 26, 34, 38, 40, 42, 54, 57,
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None):
+    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None, alt=False):
         self.ind = ind
         self.ood = ood
         self.pseudo = pseudo
@@ -53,10 +53,12 @@ class NuScenesDataset(torch.utils.data.Dataset):
             self.pseudo_ood = ["bicycle"]
             self.true_ood = ["motorcycle"]
         else:
-            self.pseudo_ood = ["static_object.bicycle_rack", "vehicle.bicycle"]
-            self.true_ood = ["vehicle.motorcycle"]
-            # self.pseudo_ood = ["movable_object.debris", "movable_object.pushable_pullable", "movable_object.barrier"]
-            # self.true_ood = ["movable_object.pushable_pullable"]
+            if alt:
+                self.pseudo_ood = ["vehicle.motorcycle", "movable_object.trafficcone", "movable_object.barrier"]
+                self.true_ood = ["movable_object.pushable_pullable"]
+            else:
+                self.pseudo_ood = ["static_object.bicycle_rack", "vehicle.bicycle"]
+                self.true_ood = ["vehicle.motorcycle"]
 
         if true_ood is not None:
             self.true_ood = true_ood
@@ -143,7 +145,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
                 if inst['category_name'] in self.true_ood:
                     is_true_ood = True
-                    
+
                 if inst['category_name'] in self.pseudo_ood:
                     is_pseudo_ood = True
 
@@ -338,7 +340,8 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False):
+    print(f'Num Workers: {num_workers}')
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":
@@ -366,7 +369,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
 
     nusc, dataroot = get_nusc("trainval", dataroot)
 
-    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood)
+    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood, alt=alt)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)
@@ -393,7 +396,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
             num_workers=num_workers,
             shuffle=True,
             drop_last=True,
-            pin_memory=True
+            pin_memory=True,
         )
 
     return loader
