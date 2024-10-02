@@ -368,9 +368,9 @@ class Segnet(nn.Module):
         )
 
         # Weights
-        self.ce_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
-        self.center_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
-        self.offset_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
+        # self.ce_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
+        # self.center_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
+        # self.offset_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
 
         # set_bn_momentum(self, 0.1)
 

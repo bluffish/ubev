@@ -1,29 +1,17 @@
-Using config ./configs/eval_carla_cvt_evidential.yaml
-Num Workers: 32
-['static_object.bicycle_rack', 'vehicle.bicycle'] ['vehicle.motorcycle']
+Using config ./configs/eval_nuscenes_cvt_evidential.yaml
+{'type': 'evidential', 'backbone': 'cvt', 'dataset': 'nuscenes', 'logdir': 'outputs/nuscenes/cvt_evidential', 'gpus': [0, 1], 'batch_size': 8, 'num_workers': 16, 'pretrained': './outputs/nuscenes/s2/cvt_evidential_gamma=.05_ol=.01/19.pt', 'config': './configs/eval_nuscenes_cvt_evidential.yaml', 'pos_class': 'vehicle', 'alt': True}
+Num Workers: 16
+['vehicle.motorcycle', 'movable_object.trafficcone', 'movable_object.barrier'] ['movable_object.pushable_pullable']
 Using set: ood_test
 Loaded pretrained weights for efficientnet-b4
 BETA LAMBDA: 0.001
 --------------------------------------------------
 Running eval on mini
-Using GPUS: [7]
-Loader: 5001
+Using GPUS: [0, 1]
+Loader: 2833
 Batch size: 8
-Output directory: outputs/carla/cvt_evidential 
-Pretrained: ./outputs/nuscenes/cvt_evidential_gamma=.05_ol=.01_k=64/19.pt 
+Output directory: outputs/nuscenes/cvt_evidential 
+Pretrained: ./outputs/nuscenes/s2/cvt_evidential_gamma=.05_ol=.01/19.pt 
 --------------------------------------------------
-OOD Fraction tensor(0.0002151367, dtype=torch.float64)
-IDT Fraction tensor(0.0143308594, dtype=torch.float64)
-Using set: ood_test
-Loaded pretrained weights for efficientnet-b4
-BETA LAMBDA: 0.001
---------------------------------------------------
-Running eval on mini
-Using GPUS: [7]
-Loader: 2000
-Batch size: 8
-Output directory: outputs/carla/cvt_evidential 
-Pretrained: ./outputs_bin/carla/aug/cvt_ufocal_gamma=.05_ol=.01_k=64/19.pt 
---------------------------------------------------
-OOD Fraction tensor(0.0007110352, dtype=torch.float64)
-IDT Fraction tensor(0.0059700195, dtype=torch.float64)
+OOD Fraction tensor(0.0005212891, dtype=torch.float64)
+IDT Fraction tensor(0.0119323242, dtype=torch.float64)

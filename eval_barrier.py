@@ -29,7 +29,7 @@ torch.set_printoptions(precision=10)
 
 def get(config):
     dataroot = f"../data/{config['dataset']}"
-    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood", "mini", dataroot, disable_tqdm=True)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot, disable_tqdm=True)
 
     iou = get_iou(preds, labels, exclude=oods)[0]
     ece = expected_calibration_error(preds, labels, exclude=oods)[2]
@@ -62,7 +62,8 @@ if __name__ == "__main__":
     config = get_config(args)
 
     config['dataset'] = "nuscenes"
-    config['true_ood'] = ['movable_object.barrier']
+    config['alt'] = True
+    config['num_workers'] = 16
 
     if 'ens' in config:
         config['ensemble'] = config['ens']

@@ -5,6 +5,6 @@ logdir: 'outputs/nuscenes/simplebev_evidential'
 gpus: [7]
 batch_size: 32
 weight_decay: 0.0000001
-learning_rate: 0.001
+learning_rate: 0.0003
 num_epochs: 20
 loss: ce
