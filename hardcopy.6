@@ -1,0 +1,50 @@
+         [-0.0020, -0.9999,  0.0116]]])
+tensor([[ 1.7220,  0.0048,  1.4949],
+        [ 1.5753,  0.5005,  1.5070],
+        [ 1.5808, -0.4991,  1.5175],
+        [ 1.0485,  0.4831,  1.5621],
+        [ 0.0552,  0.0108,  1.5679],
+        [ 1.0595, -0.4672,  1.5505]])
+^CTraceback (most recent call last):
+  File "/data/bny220000/projects/simple_bev/train_nuscenes.py", line 557, in <module>
+    Fire(main)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/fire/core.py", line 143, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/fire/core.py", line 477, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/fire/core.py", line 693, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File "/data/bny220000/projects/simple_bev/train_nuscenes.py", line 446, in main
+    total_loss, metrics = run_model(model, seg_loss_fn, sample, device, sw_t)
+  File "/data/bny220000/projects/simple_bev/train_nuscenes.py", line 194, in run_model
+    ce_loss = loss_fn(seg_bev_e, seg_bev_g, valid_bev_g)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/data/bny220000/projects/simple_bev/train_nuscenes.py", line 65, in forward
+    loss = self.loss_fn(ypred, ytgt)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/torch/nn/modules/loss.py", line 720, in forward
+    return F.binary_cross_entropy_with_logits(input, target,
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/site-packages/torch/nn/functional.py", line 3162, in binary_cross_entropy_with_logits
+    return torch.binary_cross_entropy_with_logits(input, target, weight, pos_weight, reduction_enum)
+KeyboardInterrupt
+^CException ignored in atexit callback: <function _exit_function at 0x7f7744c6d360>
+Traceback (most recent call last):
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/multiprocessing/util.py", line 357, in _exit_function
+    p.join()
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/multiprocessing/popen_fork.py", line 43, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/home/bny220000/.conda/envs/sucam/lib/python3.10/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+KeyboardInterrupt:
+^C^C^C^C
+(sucam) bny220000@csr-93141:~/data/projects/simple_bev$ p
+WARNING:root:could not open file '/etc/apt/sources.list'
+
+p: command not found
+(sucam) bny220000@csr-93141:~/data/projects/simple_bev$
+(sucam) bny220000@csr-93141:~/data/projects/simple_bev$
+(sucam) bny220000@csr-93141:~/data/projects/simple_bev$

@@ -10,9 +10,11 @@ class Evidential(Model):
 
         self.beta_lambda = 0.001
         self.ood_lambda = 0.01
-        self.k = 64
+        self.k = 0
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
+        print(f"VAC SCALING FACTOR: {self.k}")
+        print(f"OOD WEIGHT: {self.ood_lambda}")
 
     @staticmethod
     def aleatoric(alpha, mode='dissonance'):

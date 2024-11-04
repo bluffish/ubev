@@ -1,8 +1,6 @@
 from eval import *
 import seaborn as sns
 import sys
-import warnings
-warnings.filterwarnings("ignore")
 
 sns.set_style('white')
 sns.set_palette('muted')
@@ -62,13 +60,11 @@ if __name__ == "__main__":
     config = get_config(args)
 
     config['dataset'] = "nuscenes"
-    config['alt'] = Trueasdasdasdasd
-    config['num_workers'] = 16
-
     if 'ens' in config:
         config['ensemble'] = config['ens']
     elif 'pre' in config:
         config['pretrained'] = config['pre']
+    config['alt'] = False
 
     print(config)
 
@@ -80,7 +76,6 @@ if __name__ == "__main__":
         ans += f"{out[i]:.3g},"
 
     ans = ans[0:len(ans)-1]+'", ",")'
-
     sys.stdout = save_stdout
 
     print(ans)

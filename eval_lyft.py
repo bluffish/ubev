@@ -1,5 +1,6 @@
 from eval import *
 import seaborn as sns
+import sys
 
 sns.set_style('white')
 sns.set_palette('muted')
@@ -26,13 +27,13 @@ torch.set_printoptions(precision=10)
 
 def get(config):
     dataroot = f"../data/{config['dataset']}"
-    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood", "mini", dataroot)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot, disable_tqdm=True)
 
     iou = get_iou(preds, labels, exclude=oods)[0]
     ece = expected_calibration_error(preds, labels, exclude=oods)[2]
     mis = get_mis(preds, labels)
-    roc, pr, fpr95 = roc_pr(aleatoric, mis, exclude=oods)[4:6]
-    ood_auroc, ood_aupr, ood_fpr95 = roc_pr(epistemic, oods)[4:6]
+    roc, pr, _, fpr95 = roc_pr(aleatoric, mis, exclude=oods)[4:8]
+    ood_auroc, ood_aupr, _, ood_fpr95 = roc_pr(epistemic, oods)[4:8]
     return [iou, ece, roc, pr, fpr95, ood_auroc, ood_aupr, ood_fpr95]
 
 
@@ -46,10 +47,14 @@ if __name__ == "__main__":
 
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-e', '--ens', nargs='+', required=False, type=str)
+    parser.add_argument('--ep_mode', required=False, type=str)
 
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
 
     args = parser.parse_args()
+
+    save_stdout = sys.stdout
+    sys.stdout = open('trash', 'w')
 
     print(f"Using config {args.config}")
     config = get_config(args)
@@ -59,6 +64,7 @@ if __name__ == "__main__":
         config['ensemble'] = config['ens']
     elif 'pre' in config:
         config['pretrained'] = config['pre']
+    config['alt'] = False
 
     print(config)
 
@@ -70,5 +76,6 @@ if __name__ == "__main__":
         ans += f"{out[i]:.3g},"
 
     ans = ans[0:len(ans)-1]+'", ",")'
+    sys.stdout = save_stdout
 
     print(ans)

@@ -33,7 +33,7 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
 
-    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev'  or config['backbone'] == 'simplebev':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
@@ -160,8 +160,8 @@ if __name__ == "__main__":
 
     preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
 
-    print(epistemic[oods.bool()].mean())
-    print(epistemic[~oods.bool()].mean())
+    print(oods.double().mean())
+    print(epistemic.mean())
 
     if args.save:
         torch.save(preds, os.path.join(config['logdir'], 'preds.pt'))

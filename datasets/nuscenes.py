@@ -1,6 +1,8 @@
 import os
 import random
 import warnings
+
+import numpy as np
 import torchvision
 
 from nuscenes.eval.common.utils import quaternion_yaw
@@ -188,10 +190,8 @@ class NuScenesDataset(torch.utils.data.Dataset):
             intrinsic = torch.Tensor(sensor_sample['camera_intrinsic'])
 
             q = sensor_sample['rotation']
-
             adjust_yaw = Rotation.from_euler('z', [self.yaw], degrees=True)
             sensor_rotation = Rotation.from_quat([q[1], q[2], q[3], q[0]]).inv() * adjust_yaw
-
             sensor_translation = np.array(sensor_sample['translation'])
 
             extrinsic = np.eye(4, dtype=np.float32)

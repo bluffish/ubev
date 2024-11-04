@@ -1,0 +1,8 @@
+type: 'baseline'
+backbone: 'simplebev'
+dataset: 'nuscenes'
+logdir: 'outputs/baseline/simplebev_baseline'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/simplebev_baseline/9.pt'

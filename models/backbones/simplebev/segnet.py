@@ -380,7 +380,7 @@ class Segnet(nn.Module):
         else:
             self.xyz_camA = None
 
-    def forward(self, rgb_camXs, pix_T_cams_, cam0_T_camXs, vox_util, rad_occ_mem0=None):
+    def forward(self, rgb_camXs, pix_T_cams_, extrinsics, vox_util, rad_occ_mem0=None):
         '''
         B = batch size, S = number of cameras, C = 3, H = img height, W = img width
         rgb_camXs: (B,S,C,H,W)
@@ -394,6 +394,7 @@ class Segnet(nn.Module):
             - (B, 1, Z, Y, X) when use_lidar = True
         '''
 
+
         B, S, C, H, W = rgb_camXs.shape
         device = rgb_camXs.device
         assert (C == 3)
@@ -406,11 +407,15 @@ class Segnet(nn.Module):
         __p = lambda x: models.backbones.simplebev.utils.basic.pack_seqdim(x, B)
         __u = lambda x: models.backbones.simplebev.utils.basic.unpack_seqdim(x, B)
 
-        cam0_T_camXs = models.backbones.simplebev.utils.geom.get_camM_T_camXs(cam0_T_camXs, ind=0)
+        torch.set_printoptions(sci_mode=False)
 
-        # print(pix_T_cams[0, 1])
-        # print(cam0_T_camXs[0, 1])
-        # print("--")
+        extrinsics = torch.linalg.inv(extrinsics)
+        rots = torch.linalg.inv(extrinsics[:, :, :3, :3])
+        trans = extrinsics[:, :, :3, 3]
+
+        velo_T_cams = models.backbones.simplebev.utils.geom.merge_rtlist(rots, trans).to(device)
+        cams_T_velo = __u(models.backbones.simplebev.utils.geom.safe_inverse(__p(velo_T_cams)))
+        cam0_T_camXs = models.backbones.simplebev.utils.geom.get_camM_T_camXs(cams_T_velo, ind=0)
 
         rgb_camXs_ = __p(rgb_camXs)
         pix_T_cams_ = __p(pix_T_cams)

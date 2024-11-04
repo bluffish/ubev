@@ -120,8 +120,8 @@ def merge_rtlist(rlist, tlist):
     B, N, F = list(tlist.shape)
     assert (F == 3)
 
-    __p = lambda x: models.backbones.simplebev.utils.basic.basic.pack_seqdim(x, B)
-    __u = lambda x: models.backbones.simplebev.utils.basic.basic.unpack_seqdim(x, B)
+    __p = lambda x: models.backbones.simplebev.utils.basic.pack_seqdim(x, B)
+    __u = lambda x: models.backbones.simplebev.utils.basic.unpack_seqdim(x, B)
     rlist_, tlist_ = __p(rlist), __p(tlist)
     rtlist_ = merge_rt(rlist_, tlist_)
     rtlist = __u(rtlist_)

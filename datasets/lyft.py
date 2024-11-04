@@ -9,7 +9,7 @@ def get_lyft(version, dataroot):
     return lyft, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, is_train=False, yaw=180):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False):
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":
@@ -37,7 +37,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
 
     lyft, dataroot = get_lyft('trainval', dataroot)
 
-    data = NuScenesDataset(lyft, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw)
+    data = NuScenesDataset(lyft, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood, alt=alt)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)
