@@ -15,6 +15,7 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
 
+
 def train():
     classes, n_classes, weights = change_params(config)
 
@@ -37,7 +38,8 @@ def train():
     if 'val_set' in config:
         val_set = config['val_set']
 
-    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'bevformer' or config['backbone'] == 'simplebev':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'bevformer' or config[
+        'backbone'] == 'simplebev':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
@@ -51,7 +53,7 @@ def train():
         backbone=config['backbone'],
         n_classes=n_classes,
         loss_type=config['loss'],
-        weights=weights
+        weights=weights,
     )
 
     train_loader = datasets[config['dataset']](
@@ -141,15 +143,24 @@ def train():
 
         writer.add_scalar('train/epoch', epoch, step)
 
+        grad_step = config['grad_acc']
+
         for images, intrinsics, extrinsics, labels, ood in train_loader:
-            
+
             t_0 = time()
             ood_loss = None
 
             if config['ood']:
                 outs, preds, loss, ood_loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
-                outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
+                outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels, step=grad_step == 1, grad_acc=config['grad_acc'])
+
+            grad_step -= 1
+
+            if grad_step > 0:
+                continue
+            else:
+                grad_step = config['grad_acc']
 
             step += 1
 
@@ -157,17 +168,18 @@ def train():
                 scheduler.step()
 
             if step % 10 == 0:
-                print(f"[{epoch}] {step} {loss.item()} {time()-t_0}")
+                print(f"[{epoch}] {step} {loss.item()} {time() - t_0}")
 
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
 
                 if ood_loss is not None:
                     writer.add_scalar('train/ood_loss', ood_loss, step)
-                    writer.add_scalar('train/id_loss', loss-ood_loss, step)
+                    writer.add_scalar('train/id_loss', loss - ood_loss, step)
 
                 if config['ood']:
-                    save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'], "epistemic.png", "ood.png")
+                    save_unc(model.epistemic(outs) / model.epistemic(outs).max(), ood, config['logdir'],
+                             "epistemic.png", "ood.png")
                 save_pred(preds, labels, config['logdir'])
 
             if step % 50 == 0:
@@ -250,14 +262,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config")
-    parser.add_argument('-q', '--queue', default=False, action='store_true')
+    parser.add_argument('-q', '--queue', default=0, type=int)
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
 
-    parser.add_argument( '--train_set', required=False, type=str)
-    parser.add_argument( '--val_set', required=False, type=str)
+    parser.add_argument('--train_set', required=False, type=str)
+    parser.add_argument('--val_set', required=False, type=str)
 
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
@@ -270,6 +282,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=0, required=False, type=int)
     parser.add_argument('--stable', default=False, action='store_true')
     parser.add_argument('--num_workers', default=16, type=int)
+    parser.add_argument('--grad_acc', default=1, type=int)
 
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
@@ -291,11 +304,11 @@ if __name__ == "__main__":
 
     config['mixed'] = False
 
-    if config['queue']:
+    if config['queue'] > 0:
         pynvml.nvmlInit()
         print("Waiting for suitable GPUs...")
 
-        required_gpus = 2
+        required_gpus = config['queue']
         while True:
             available_gpus = get_available_gpus(required_gpus=required_gpus)
             if len(available_gpus) == required_gpus:

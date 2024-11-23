@@ -27,7 +27,7 @@ torch.set_printoptions(precision=10)
 
 def get(config):
     dataroot = f"../data/{config['dataset']}"
-    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood_test", "mini", dataroot, disable_tqdm=True)
+    preds, labels, oods, aleatoric, epistemic, raw = eval(config, "ood", "mini", dataroot, disable_tqdm=True)
 
     iou = get_iou(preds, labels, exclude=oods)[0]
     ece = expected_calibration_error(preds, labels, exclude=oods)[2]

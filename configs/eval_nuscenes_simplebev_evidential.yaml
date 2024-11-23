@@ -1,4 +1,4 @@
-  type: 'evidential'
+type: 'evidential'
 backbone: 'simplebev'
 dataset: 'nuscenes'
 logdir: 'outputs/baseline/simplebev_evidential'

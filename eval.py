@@ -33,7 +33,7 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
 
-    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev'  or config['backbone'] == 'simplebev':
+    if config['backbone'] == 'lss' or config['backbone'] == 'pointbev' or config['backbone'] == 'simplebev':
         yaw = 0
     elif config['backbone'] == 'cvt':
         yaw = 180
@@ -44,13 +44,23 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
     if 'true_ood' in config:
         true_ood = config['true_ood']
 
+    weather = None
+    if 'weather' in config:
+        weather = config['weather']
+
+    town = None
+    if 'town' in config:
+        town = config['town']
+
     loader = datasets[config['dataset']](
         set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         yaw=yaw,
         true_ood=true_ood,
-        alt=config['alt']
+        alt=config['alt'],
+        weather=weather,
+        town=town,
     )
 
     print(f"Using set: {set}")
@@ -114,9 +124,10 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
             raw.append(out)
 
             save_unc(model.epistemic(out), ood, config['logdir'], f"{i}_epistemic.png", f"{i}_ood.png")
-            i += 1
             save_unc(model.aleatoric(out), get_mis(pred, label), config['logdir'], "aleatoric.png", "mis.png")
             save_pred(pred, label, config['logdir'])
+
+            i += 1
 
     print("OOD Fraction", total_ood / total)
     print("IDT Fraction", total_id / total)
@@ -159,7 +170,8 @@ if __name__ == "__main__":
     split, metric, set = args.split, args.metric, args.set
 
     preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
-
+    iou = get_iou(preds, labels, exclude=oods)
+    print(iou)
     print(oods.double().mean())
     print(epistemic.mean())
 
@@ -171,7 +183,6 @@ if __name__ == "__main__":
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
         torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
 
-    iou = get_iou(preds, labels, exclude=oods)
     brier = brier_score(preds, labels, exclude=oods)
 
     mis = preds.argmax(dim=1) != labels.argmax(dim=1)

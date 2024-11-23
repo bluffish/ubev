@@ -86,21 +86,17 @@ class Model(nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def train_step(self, images, intrinsics, extrinsics, labels):
-        self.opt.zero_grad(set_to_none=True)
+    def train_step(self, images, intrinsics, extrinsics, labels, step=True, grad_acc=1):
 
-        if self.bbt == 'pointbev':
-            outs, mask = self(images, intrinsics, extrinsics)
-            loss = self.loss(outs, labels.to(self.device), reduction='none')
-
-            loss = (loss.unsqueeze(1) * mask).sum() / (mask.sum() + 1e-6)
-        else:
-            outs = self(images, intrinsics, extrinsics)
-            loss = self.loss(outs, labels.to(self.device))
+        outs = self(images, intrinsics, extrinsics)
+        loss = self.loss(outs, labels.to(self.device)) / grad_acc
 
         loss.backward()
-        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
-        self.opt.step()
+
+        if step:
+            nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+            self.opt.step()
+            self.opt.zero_grad(set_to_none=True)
 
         preds = self.activate(outs)
         return outs, preds, loss

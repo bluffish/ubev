@@ -31,10 +31,15 @@ class Baseline(Model):
 
     @staticmethod
     def activate(logits):
-        return torch.softmax(logits, dim=1)
+        if logits.shape[1] == 1:
+            return logits.sigmoid()
+        else:
+            return torch.softmax(logits, dim=1)
 
     def loss(self, logits, target, reduction='mean'):
-        if self.loss_type == 'ce':
+        if self.loss_type == 'bce':
+            A = bce_loss(logits, target[:, 0].unsqueeze(1))
+        elif self.loss_type == 'ce':
             A = ce_loss(logits, target, weights=self.weights)
         elif self.loss_type == 'focal':
             A = focal_loss(logits, target, weights=self.weights, n=self.gamma)

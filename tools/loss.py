@@ -17,7 +17,7 @@ def a_loss(logits, target, weights=None):
 
 
 def bce_loss(logits, target, weights=None):
-    return F.binary_cross_entropy_with_logits(logits, target, reduction='none')
+    return F.binary_cross_entropy_with_logits(logits, target, pos_weight=torch.tensor(2.13), reduction='none')
 
 
 def focal_loss(logits, target, weights=None, n=2):

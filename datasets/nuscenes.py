@@ -35,7 +35,11 @@ VAL_LYFT_INDICES = [0, 2, 4, 13, 22, 25, 26, 34, 38, 40, 42, 54, 57,
                     100, 101, 102, 105, 106, 112, 120, 123, 125, 126, 129, 133, 140,
                     141, 142, 145, 155, 160, 163, 164, 168, 169, 170]
 
-
+normalize_img = torchvision.transforms.Compose((
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+))
 class NuScenesDataset(torch.utils.data.Dataset):
     def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None, alt=False):
         self.ind = ind
@@ -43,7 +47,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.pseudo = pseudo
         self.pos_class = pos_class
         self.yaw = yaw
-
+        
         self.is_lyft = isinstance(nusc, LyftDataset)
 
         if self.is_lyft:
@@ -203,6 +207,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             image = resize_and_crop_image(image, resize_dims=self.augmentation_parameters['resize_dims'],
                                           crop=self.augmentation_parameters['crop'])
+
             normalized_image = self.to_tensor(image)
 
             top_crop = self.augmentation_parameters['crop'][1]
@@ -340,7 +345,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False, weather=None, town=None):
     print(f'Num Workers: {num_workers}')
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
@@ -368,6 +373,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
         raise NotImplementedError(f"Dataset {set} not exist.")
 
     nusc, dataroot = get_nusc("trainval", dataroot)
+    # nusc, dataroot = get_nusc(version, dataroot)
 
     data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood, alt=alt)
     random.seed(seed)

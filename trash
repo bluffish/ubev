@@ -1,8 +1,19 @@
-Using config ./configs/eval_lyft_lss_evidential.yaml
-{'type': 'evidential', 'backbone': 'lss', 'dataset': 'lyft', 'logdir': 'outputs/lyft/lss_evidential', 'gpus': [4, 5], 'batch_size': 8, 'num_workers': 32, 'pretrained': './outputs/lyft/lss_evidential_gamma=.5_ol=.01_k=128/19.pt', 'config': './configs/eval_lyft_lss_evidential.yaml', 'pos_class': 'vehicle', 'alt': False}
-['bicycle'] ['motorcycle']
+Using config ./configs/eval_nuscenes_simplebev_evidential.yaml
+{'type': 'evidential', 'backbone': 'simplebev', 'dataset': 'nuscenes', 'logdir': 'outputs/baseline/simplebev_evidential', 'gpus': [6, 7], 'batch_size': 8, 'num_workers': 32, 'pretrained': './outputs/nuscenes/simplebev_evidential_gamma=.5_ol=.01_k=64/19.pt', 'config': './configs/eval_nuscenes_simplebev_evidential.yaml', 'pos_class': 'vehicle', 'alt': False}
+Num Workers: 32
+['static_object.bicycle_rack', 'vehicle.bicycle'] ['vehicle.motorcycle']
 Using set: ood_test
-Loaded pretrained weights for efficientnet-b0
+Loaded pretrained weights for efficientnet-b4
 BETA LAMBDA: 0.001
 VAC SCALING FACTOR: 0
 OOD WEIGHT: 0.01
+--------------------------------------------------
+Running eval on mini
+Using GPUS: [6, 7]
+Loader: 5001
+Batch size: 8
+Output directory: outputs/baseline/simplebev_evidential 
+Pretrained: ./outputs/nuscenes/simplebev_evidential_gamma=.5_ol=.01_k=64/19.pt 
+--------------------------------------------------
+OOD Fraction tensor(0.0002151367, dtype=torch.float64)
+IDT Fraction tensor(0.0143308594, dtype=torch.float64)

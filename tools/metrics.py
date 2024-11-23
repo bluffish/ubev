@@ -60,6 +60,9 @@ def get_iou(preds, labels, exclude=None):
     classes = preds.shape[1]
     iou = [0] * classes
 
+    if classes == 1:
+        return [unc_iou(preds[:, 0], labels[:, 0]).item()]
+
     pmax = preds.argmax(dim=1).unsqueeze(1)
     lmax = labels.argmax(dim=1).unsqueeze(1)
 
@@ -76,6 +79,7 @@ def get_iou(preds, labels, exclude=None):
             union = (p | l).sum().float().item()
             iou[i] = intersect / union if union > 0 else 0
     return iou
+
 
 def unc_iou(y_score, y_true, thresh=.5):
     pred = (y_score > thresh).bool()

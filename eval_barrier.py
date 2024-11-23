@@ -62,7 +62,7 @@ if __name__ == "__main__":
     config = get_config(args)
 
     config['dataset'] = "nuscenes"
-    config['alt'] = Trueasdasdasdasd
+    config['alt'] = True
     config['num_workers'] = 16
 
     if 'ens' in config:

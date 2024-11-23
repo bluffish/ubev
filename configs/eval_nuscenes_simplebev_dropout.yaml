@@ -1,0 +1,8 @@
+type: 'dropout'
+backbone: 'simplebev'
+dataset: 'nuscenes'
+logdir: 'outputs/baseline/simplebev_dropout'
+gpus: [7]
+batch_size: 8
+num_workers: 32
+pretrained: 'outputs/nuscenes/simplebev_dropout/19.pt'

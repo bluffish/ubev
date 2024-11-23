@@ -116,6 +116,10 @@ def save_unc(u_score, u_true, out_path, score_name, true_name):
     u_score = u_score.detach().cpu().numpy()
     u_true = u_true.numpy()
 
+    # print(u_score.max(), u_score.min())
+
+    # u_score = (u_score - u_score.min()) / (u_score.max() - u_score.min())
+
     cv2.imwrite(
         os.path.join(out_path, true_name),
         u_true[0, 0] * 255
@@ -128,7 +132,7 @@ def save_unc(u_score, u_true, out_path, score_name, true_name):
 
 
 def save_pred(pred, label, out_path, ego=False):
-    if pred.shape[1] != 2:
+    if pred.shape[1] > 2:
         pred = map_rgb(pred[0], ego=ego)
         label = map_rgb(label[0], ego=ego)
         cv2.imwrite(os.path.join(out_path, "pred.png"), pred)
@@ -137,6 +141,8 @@ def save_pred(pred, label, out_path, ego=False):
         return pred, label
     else:
         cv2.imwrite(os.path.join(out_path, "pred.png"), pred[0, 0].detach().cpu().numpy() * 255)
+        cv2.imwrite(os.path.join(out_path, "bins.png"), (pred[0, 0].detach().cpu().numpy() > .5) * 255)
+
         cv2.imwrite(os.path.join(out_path, "label.png"), label[0, 0].detach().cpu().numpy() * 255)
 
 

@@ -9,8 +9,74 @@ from torch.utils.data import Subset
 from tools.geometry import *
 
 
+def assign_weather_indices(total_length, weather_list, switch_frequency, repeat_times):
+    """
+    Assigns indices for each weather type with the first section of the first weather being (n-1) ticks long,
+    all others being n ticks long, and repeats the sequence `repeat_times` times.
+
+    Args:
+        total_length (int): Total length of the dataset (number of frames per cycle).
+        weather_list (list): List of weather types.
+        switch_frequency (int): Number of frames for each weather type (n ticks).
+        repeat_times (int): Number of times to repeat the sequence.
+
+    Returns:
+        dict: A dictionary with weather types as keys and lists of indices as values.
+    """
+    # Initialize the dictionary to store indices for each weather type
+    weather_indices = {weather: [] for weather in weather_list}
+
+    # Calculate indices for a single cycle
+    single_cycle_indices = {weather: [] for weather in weather_list}
+    current_index = 0
+    first_weather_adjustment = switch_frequency - 1  # First section is (n-1) ticks
+    is_first_weather = True
+
+    while current_index < total_length:
+        for weather in weather_list:
+            # Determine the length of the current section
+            if is_first_weather:
+                section_length = first_weather_adjustment
+                is_first_weather = False
+            else:
+                section_length = switch_frequency
+
+            # Add indices for the current weather
+            section_end = min(current_index + section_length, total_length)
+            single_cycle_indices[weather].extend(range(current_index, section_end))
+
+            # Update the current index
+            current_index = section_end
+
+            # Break if we've reached the total length
+            if current_index >= total_length:
+                break
+
+    # Repeat the indices for each cycle
+    total_length_per_cycle = sum(len(indices) for indices in single_cycle_indices.values())
+    for cycle in range(repeat_times):
+        for weather, indices in single_cycle_indices.items():
+            offset = cycle * total_length_per_cycle
+            weather_indices[weather].extend(idx + offset for idx in indices)
+
+    return weather_indices
+
+
+def assign_town_indices(total_length, town_list, switch_frequency):
+    # Initialize the dictionary to store indices for each weather type
+    town_indices = {town: [] for town in town_list}
+
+    # Assign indices to each weather type
+    for idx in range(total_length):
+        # Determine the current weather type based on the frame index
+        current_town = town_list[(idx // switch_frequency) % len(town_list)]
+        town_indices[current_town].append(idx)
+
+    return town_indices
+
+
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, is_train, pos_class):
+    def __init__(self, data_path, is_train, pos_class, weather=None, town=None):
         self.is_train = is_train
         self.return_info = False
         self.pos_class = pos_class
@@ -20,6 +86,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         self.mode = 'train' if self.is_train else 'val'
 
         self.vehicles = len(os.listdir(os.path.join(self.data_path, 'agents')))
+        # self.vehicles = 1
         self.ticks = len(os.listdir(os.path.join(self.data_path, 'agents/0/back_camera')))
         self.offset = 0
 
@@ -33,6 +100,35 @@ class CarlaDataset(torch.utils.data.Dataset):
             bev_resolution, bev_start_position, bev_dimension
         )
 
+        self.towns = [
+            "Town10HD_Opt",
+            #"Town03_Opt",
+            "Town05_Opt",
+            "Town07_Opt",
+            "Town02_Opt"
+        ]
+
+        self.weathers = [
+            "ClearNoon",
+            "CloudyNoon",
+            "WetNoon",
+            "MidRainyNoon",
+            "SoftRainNoon",
+            "ClearSunset",
+            "CloudySunset",
+            "WetSunset",
+            "WetCloudySunset",
+            "SoftRainSunset",
+        ]
+
+        self.weather_idxs = assign_weather_indices(self.ticks, self.weathers, 2, self.vehicles)
+        self.town_idxs = assign_town_indices(self.ticks * self.vehicles, self.towns, 20)
+
+        self.weather = weather
+        self.town = town
+
+        # print(self.weather_idxs)
+
     def get_input_data(self, index, agent_path):
         images = []
         intrinsics = []
@@ -44,6 +140,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         for sensor_name, sensor_info in sensors['sensors'].items():
             if sensor_info["sensor_type"] == "sensor.camera.rgb" and sensor_name != "birds_view_camera":
                 image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
+                image.save(f"cam/{sensor_name}_{index}.png")
 
                 intrinsic = torch.tensor(sensor_info["intrinsic"])
                 translation = np.array(sensor_info["transform"]["location"])
@@ -123,9 +220,22 @@ class CarlaDataset(torch.utils.data.Dataset):
         return label, ood[None]
 
     def __len__(self):
-        return self.ticks * self.vehicles
+        if self.weather is not None and self.town is not None:
+            raise Exception
+
+        if self.weather is not None:
+            return len(self.weather_idxs[self.weather])
+        if self.town is not None:
+            return len(self.town_idxs[self.town])
+        else:
+            return self.ticks * self.vehicles
 
     def __getitem__(self, index):
+        if self.weather is not None:
+            index = self.weather_idxs[self.weather][index]
+        elif self.town is not None:
+            index = self.town_idxs[self.town][index]
+
         agent_number = math.floor(index / self.ticks)
         agent_path = os.path.join(self.data_path, f"agents/{agent_number}/")
         index = (index + self.offset) % self.ticks
@@ -143,8 +253,8 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, true_ood=None):
-    data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class)
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, true_ood=None, alt=False, weather=None, town=None):
+    data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class, weather=weather, town=town)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)
@@ -163,6 +273,7 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
             drop_last=True,
             sampler=sampler,
             pin_memory=True,
+            shuffle=False,
         )
     else:
         loader = torch.utils.data.DataLoader(
