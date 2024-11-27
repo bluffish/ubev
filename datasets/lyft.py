@@ -9,7 +9,8 @@ def get_lyft(version, dataroot):
     return lyft, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False,
+                 true_ood=None, alt=False, weather=None, town=None, nuscenes_c=None):
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
     elif set == "val":

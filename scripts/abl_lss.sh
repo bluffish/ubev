@@ -1,4 +1,3 @@
-python eval_barrier.py ./configs/eval_nuscenes_lss_evidential.yaml -p ./outputs/nuscenes/lss_evidential_gamma=.5_ol=.01_k=64/19.pt -g 0 1
-python eval_barrier.py ./configs/eval_nuscenes_lss_evidential.yaml -p ./outputs/nuscenes/lss_evidential_ol=.01_k=64/19.pt -g 0 1
-python eval_barrier.py ./configs/eval_nuscenes_lss_evidential.yaml -p ./outputs/nuscenes/lss_evidential_gamma=.5_ol=.01/19.pt -g 0 1
-python eval_barrier.py ./configs/eval_nuscenes_lss_evidential.yaml -p ./outputs/nuscenes/lss_evidential_gamma=.5/19.pt -g 0 1
+python eval_nusc.py ./configs/eval_nuscenes_lss_baseline.yaml -p ./outputs_bin/nuscenes/barrier/lss_energy_gamma=1_ol=.0001/19.pt --ep_mode energy -g 0 1
+python eval_nusc.py ./configs/eval_nuscenes_lss_evidential.yaml -p ./outputs/nuscenes/lss_evidential_ol=.01/19.pt -g 0 1
+python eval_nusc.py ./configs/eval_nuscenes_lss_evidential.yaml -p  ./outputs/nuscenes/lss_evidential_gamma=.5_ol=.01_k=64/19.pt -g 0 1

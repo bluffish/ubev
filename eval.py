@@ -21,9 +21,6 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
 
-torch.manual_seed(0)
-np.random.seed(0)
-
 torch.set_printoptions(precision=10)
 
 
@@ -52,11 +49,19 @@ def eval(config, set, split, dataroot, disable_tqdm=False):
     if 'town' in config:
         town = config['town']
 
+    nsc = None
+    if 'nuscenes_c' in config:
+        nsc = config['nuscenes_c']
+
+    print(nsc)
+
     loader = datasets[config['dataset']](
         set, split, dataroot, config['pos_class'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         yaw=yaw,
+        seed=0,
+        nuscenes_c=nsc,
         true_ood=true_ood,
         alt=config['alt'],
         weather=weather,
@@ -157,6 +162,8 @@ if __name__ == "__main__":
     parser.add_argument('--true_ood', nargs='+', required=False, type=str)
     parser.add_argument('--num_workers', default=16, action='store_true')
     parser.add_argument('-a', '--alt', default=False, action='store_true')
+    parser.add_argument('--seed', default=0, required=False, type=int)
+    parser.add_argument('--nuscenes_c', required=False, type=str)
 
     parser.add_argument('--pseudo', default=False, action='store_true')
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
@@ -168,6 +175,9 @@ if __name__ == "__main__":
 
     dataroot = f"../data/{config['dataset']}"
     split, metric, set = args.split, args.metric, args.set
+
+    torch.manual_seed(config['seed'])
+    np.random.seed(config['seed'])
 
     preds, labels, oods, aleatoric, epistemic, raw = eval(config, set, split, dataroot)
     iou = get_iou(preds, labels, exclude=oods)

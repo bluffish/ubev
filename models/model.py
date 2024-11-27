@@ -4,16 +4,12 @@ import torch.nn as nn
 from models.backbones.cvt.cross_view_transformer import CrossViewTransformer
 from models.backbones.fiery.fiery import Fiery
 from models.backbones.lss.lift_splat_shoot import LiftSplatShoot
-from models.backbones.pointbev.pointbev_model import PointBEV
-from models.backbones.pointbev.bevformer_model import BEVFormer
 from models.backbones.simplebev.simplebev import SimpleBEV
 
 backbones = {
     'fiery': Fiery,
     'cvt': CrossViewTransformer,
     'lss': LiftSplatShoot,
-    'pointbev': PointBEV,
-    'bevformer': BEVFormer,
     'simplebev': SimpleBEV,
 
 }

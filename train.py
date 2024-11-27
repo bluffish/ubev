@@ -48,6 +48,10 @@ def train():
     if 'true_ood' in config:
         true_ood = config['true_ood']
 
+    nsc = None
+    if 'nuscenes_c' in config:
+        nsc = config['nuscenes_c']
+
     model = models[config['type']](
         config['gpus'],
         backbone=config['backbone'],
@@ -64,7 +68,8 @@ def train():
         num_workers=config['num_workers'],
         yaw=yaw,
         true_ood=true_ood,
-        alt=config['alt']
+        nuscenes_c=nsc,
+        alt=config['alt'],
     )
 
     val_loader = datasets[config['dataset']](

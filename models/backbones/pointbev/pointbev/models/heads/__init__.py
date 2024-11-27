@@ -1,1 +1,0 @@
-from .convn import BEVConvHead

@@ -17,7 +17,6 @@ from tools.geometry import *
 
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
-
 TRAIN_LYFT_INDICES = [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16,
                       17, 18, 19, 20, 21, 23, 24, 27, 28, 29, 30, 31, 32,
                       33, 35, 36, 37, 39, 41, 43, 44, 45, 46, 47, 48, 49,
@@ -36,24 +35,31 @@ VAL_LYFT_INDICES = [0, 2, 4, 13, 22, 25, 26, 34, 38, 40, 42, 54, 57,
                     141, 142, 145, 155, 160, 163, 164, 168, 169, 170]
 
 normalize_img = torchvision.transforms.Compose((
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
+    torchvision.transforms.ToTensor(),
+    torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]),
 ))
+
+
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None, alt=False):
+    def __init__(self, nusc, is_train, pos_class, ind=False, ood=False, pseudo=False, yaw=180, true_ood=None, alt=False,
+                 nuscenes_c=None):
         self.ind = ind
         self.ood = ood
         self.pseudo = pseudo
         self.pos_class = pos_class
         self.yaw = yaw
-        
+        self.nuscenes_c = nuscenes_c
+        if self.nuscenes_c is not None:
+            print('Using nuscenes_c')
+
         self.is_lyft = isinstance(nusc, LyftDataset)
 
         if self.is_lyft:
             self.dataroot = nusc.data_path
         else:
             self.dataroot = nusc.dataroot
+            self.nuscenes_c_dataroot = os.path.join(self.dataroot, '../../nuscenes_c/raw/image/nuScenes-c')
 
         if self.is_lyft:
             self.pseudo_ood = ["bicycle"]
@@ -132,7 +138,8 @@ class NuScenesDataset(torch.utils.data.Dataset):
         records = []
 
         for rec in samples:
-            ego_pose = self.nusc.get('ego_pose', self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])['ego_pose_token'])
+            ego_pose = self.nusc.get('ego_pose',
+                                     self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])['ego_pose_token'])
             ego_coord = ego_pose['translation']
 
             is_true_ood = False
@@ -203,7 +210,14 @@ class NuScenesDataset(torch.utils.data.Dataset):
             extrinsic[:3, 3] = sensor_translation
             extrinsic = np.linalg.inv(extrinsic)
 
-            image = Image.open(os.path.join(self.dataroot, camera_sample['filename']))
+            if self.nuscenes_c is not None:
+                corruption, severity = self.nuscenes_c.split('_')
+                dirname, filename = os.path.split(camera_sample['filename'])
+                _, camera_folder_name = os.path.split(dirname)
+                image_path = os.path.join(self.nuscenes_c_dataroot, corruption, severity, camera_folder_name, filename)
+                image = Image.open(image_path)
+            else:
+                image = Image.open(os.path.join(self.dataroot, camera_sample['filename']))
 
             image = resize_and_crop_image(image, resize_dims=self.augmentation_parameters['resize_dims'],
                                           crop=self.augmentation_parameters['crop'])
@@ -261,13 +275,12 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 if int(inst['visibility_token']) == 1:
                     continue
 
-                if 'vehicle' in inst['category_name']:
-                    pts, _ = self.get_region(inst, trans, rot)
-                    cv2.fillPoly(vehicles, [pts], 1.0)
-
                 if inst['category_name'] in self.all_ood:
                     pts, _ = self.get_region(inst, trans, rot)
                     cv2.fillPoly(ood, [pts], 1.0)
+                elif 'vehicle' in inst['category_name']:
+                    pts, _ = self.get_region(inst, trans, rot)
+                    cv2.fillPoly(vehicles, [pts], 1.0)
 
         if not self.is_lyft:
             road, lane = self.get_map(rec)
@@ -345,7 +358,8 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False, true_ood=None, alt=False, weather=None, town=None):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, seed=0, yaw=180, is_train=False,
+                 true_ood=None, alt=False, weather=None, town=None, nuscenes_c=None):
     print(f'Num Workers: {num_workers}')
     if set == "train":
         ind, ood, pseudo, is_train = True, False, False, True
@@ -375,7 +389,8 @@ def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16
     nusc, dataroot = get_nusc("trainval", dataroot)
     # nusc, dataroot = get_nusc(version, dataroot)
 
-    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood, alt=alt)
+    data = NuScenesDataset(nusc, is_train, pos_class, ind=ind, ood=ood, pseudo=pseudo, yaw=yaw, true_ood=true_ood,
+                           alt=alt, nuscenes_c=nuscenes_c)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)

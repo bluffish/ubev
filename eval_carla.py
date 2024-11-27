@@ -30,7 +30,7 @@ weathers = [
     "WetNoon",
     "MidRainyNoon",
     "SoftRainNoon",
-    "ClearSunset",
+    "ClearSunset", #
     "CloudySunset",
     "WetSunset",
     "WetCloudySunset",
@@ -71,31 +71,32 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--pos_class', default="vehicle", required=False, type=str)
     args = parser.parse_args()
 
-    for town in towns:
+    # for town in towns:
     # for weather in weathers:
-        save_stdout = sys.stdout
-        sys.stdout = open('trash', 'w')
+    save_stdout = sys.stdout
+    sys.stdout = open('trash', 'w')
 
-        print(f"Using config {args.config}")
-        config = get_config(args)
+    print(f"Using config {args.config}")
+    config = get_config(args)
 
-        config['dataset'] = "carla"
-        if 'ens' in config:
-            config['ensemble'] = config['ens']
-        elif 'pre' in config:
-            config['pretrained'] = config['pre']
-        config['alt'] = False
-        # config['weather'] = weather
-        config['town'] = town
+    config['dataset'] = "carla"
+    if 'ens' in config:
+        config['ensemble'] = config['ens']
+    elif 'pre' in config:
+        config['pretrained'] = config['pre']
+    config['alt'] = False
 
-        out = get(config)
+    # config['weather'] = "ClearSunset"
+    config['town'] = "Town07_Opt"
 
-        ans = '=SPLIT("'
+    out = get(config)
 
-        for i in range(len(out)):
-            ans += f"{out[i]:.3g},"
+    ans = '=SPLIT("'
 
-        ans = ans[0:len(ans)-1]+'", ",")'
-        sys.stdout = save_stdout
+    for i in range(len(out)):
+        ans += f"{out[i]:.3g},"
 
-        print(ans)
+    ans = ans[0:len(ans)-1]+'", ",")'
+    sys.stdout = save_stdout
+
+    print(ans)

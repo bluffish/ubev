@@ -253,7 +253,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, true_ood=None, alt=False, weather=None, town=None):
+def compile_data(set, version, dataroot, pos_class, batch_size=8, num_workers=16, is_train=False, seed=0, yaw=-1, nuscenes_c=None, true_ood=None, alt=False, weather=None, town=None):
     data = CarlaDataset(os.path.join(dataroot, set), is_train, pos_class, weather=weather, town=town)
     random.seed(seed)
     torch.cuda.manual_seed(seed)
